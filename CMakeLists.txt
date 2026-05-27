@@ -11,6 +11,9 @@ add_executable(
 
     src/main.cu
     src/naive_attention.cu
+    src/tiled_attention.cu
+    src/softmax_stable.cu
+    src/fused_attention.cu
 )
 
 set_target_properties(

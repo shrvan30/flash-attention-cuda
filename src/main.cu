@@ -14,6 +14,22 @@ void launch_naive_attention(
     int N,
     int d);
 
+void launch_tiled_attention(
+    const float* d_Q,
+    const float* d_K,
+    const float* d_V,
+    float* d_O,
+    int N,
+    int d);
+
+void launch_fused_attention(
+    const float* d_Q,
+    const float* d_K,
+    const float* d_V,
+    float* d_O,
+    int N,
+    int d);
+
 
 // ------------------------------------------------------------
 // CPU Reference
@@ -263,6 +279,126 @@ int main()
 
     std::cout << "Max Error: "
               << max_error
+              << std::endl;
+
+    // --------------------------------------------------------
+    // Tiled GPU benchmark
+    // --------------------------------------------------------
+
+    cudaEventRecord(start);
+
+    launch_tiled_attention(
+        d_Q,
+        d_K,
+        d_V,
+        d_O,
+        N,
+        d
+    );
+
+    cudaEventRecord(stop);
+
+    cudaEventSynchronize(stop);
+
+    float tiled_ms = 0.0f;
+
+    cudaEventElapsedTime(
+        &tiled_ms,
+        start,
+        stop
+    );
+
+    std::cout << "Tiled GPU Time: "
+              << tiled_ms
+              << " ms\n";
+
+    // --------------------------------------------------------
+    // Copy tiled output
+    // --------------------------------------------------------
+
+    cudaMemcpy(
+        h_O_gpu.data(),
+        d_O,
+        size,
+        cudaMemcpyDeviceToHost
+    );
+
+    // --------------------------------------------------------
+    // Validation
+    // --------------------------------------------------------
+
+    float tiled_error = 0.0f;
+
+    for (int i = 0; i < N * d; i++)
+    {
+        tiled_error = std::max(
+            tiled_error,
+            fabs(h_O_cpu[i] - h_O_gpu[i])
+        );
+    }
+
+    std::cout << "Tiled Max Error: "
+              << tiled_error
+              << std::endl;
+
+    // --------------------------------------------------------
+    // Fused GPU benchmark
+    // --------------------------------------------------------
+
+    cudaEventRecord(start);
+
+    launch_fused_attention(
+        d_Q,
+        d_K,
+        d_V,
+        d_O,
+        N,
+        d
+    );
+
+    cudaEventRecord(stop);
+
+    cudaEventSynchronize(stop);
+
+    float fused_ms = 0.0f;
+
+    cudaEventElapsedTime(
+        &fused_ms,
+        start,
+        stop
+    );
+
+    std::cout << "Fused GPU Time: "
+              << fused_ms
+              << " ms\n";
+
+    // --------------------------------------------------------
+    // Copy fused output
+    // --------------------------------------------------------
+
+    cudaMemcpy(
+        h_O_gpu.data(),
+        d_O,
+        size,
+        cudaMemcpyDeviceToHost
+    );
+
+    // --------------------------------------------------------
+    // Validation
+    // --------------------------------------------------------
+
+    float fused_error = 0.0f;
+
+    for (int i = 0; i < N * d; i++)
+    {
+        fused_error = std::max(
+            fused_error,
+            fabs(h_O_cpu[i] - h_O_gpu[i])
+        );
+    }
+
+    std::cout << "Fused Max Error: "
+              << fused_error
               << std::endl;
 
     // --------------------------------------------------------
