@@ -8,8 +8,6 @@ try:
 except ImportError:
     HAS_MATPLOTLIB = False
 
-
-
 def stable_softmax(x):
     """
     Numerically stable softmax.
@@ -26,18 +24,14 @@ def stable_softmax(x):
 
     return x_exp / x_sum
 
-
 def attention_cpu(Q, K, V, scale=None):
     """
     Standard Attention:
-    
     O = softmax(QK^T / sqrt(d))V
-
     Q, K, V : (N, d)
     """
 
     N, d = Q.shape
-
     if scale is None:
         scale = 1.0 / np.sqrt(d)
 
@@ -48,6 +42,7 @@ def attention_cpu(Q, K, V, scale=None):
     # ---------------------------------------------------
 
     S = (Q @ K.T) * scale
+    #Here Q @ K.T is equivalent to np.matmul(Q, K.T) & np.matmul(Q, K.T) in 2D.
 
     # ---------------------------------------------------
     # Step 2: Softmax
@@ -61,9 +56,7 @@ def attention_cpu(Q, K, V, scale=None):
     # O = PV
     # Shape: (N, d)
     # ---------------------------------------------------
-
     O = P @ V
-
     return O
 
 
@@ -71,10 +64,8 @@ def benchmark_attention_cpu(N, d, n_runs=10):
     """
     Benchmark CPU attention implementation.
     """
-
     print(f"\nRunning CPU Attention Benchmark")
     print(f"N = {N}, d = {d}")
-
     # ----------------------------------------
     # Random input tensors
     # ----------------------------------------
@@ -88,28 +79,23 @@ def benchmark_attention_cpu(N, d, n_runs=10):
     # ----------------------------------------
     # Warmup
     # ----------------------------------------
-
     _ = attention_cpu(Q, K, V)
 
     # ----------------------------------------
     # Timing
     # ----------------------------------------
-
     start = time.perf_counter()
-
     for _ in range(n_runs):
         O = attention_cpu(Q, K, V)
 
     end = time.perf_counter()
-
     avg_time_ms = ((end - start) / n_runs) * 1000
 
     # ----------------------------------------
     # Memory estimation
     # ----------------------------------------
 
-    # Attention score matrix S
-    # Probability matrix P
+    # Memory for Attention score matrix S & Probability matrix P
 
     memory_bytes = 2 * (N * N * 4)
 
@@ -155,9 +141,9 @@ def run_full_benchmark():
     # Save CSV
     # -------------------------------------------------
 
-    os.makedirs("../benchmarks/results", exist_ok=True)
+    os.makedirs("../benchmarks/result", exist_ok=True)
 
-    csv_path = "../benchmarks/results/cpu_benchmark.csv"
+    csv_path = "../benchmarks/result/cpu_benchmark.csv"
 
     with open(csv_path, "w", newline="") as f:
 
@@ -199,9 +185,9 @@ def run_full_benchmark():
 
     plt.grid(True)
 
-    os.makedirs("../benchmarks/plots", exist_ok=True)
+    os.makedirs("../benchmarks/python_cpu_plot", exist_ok=True)
 
-    plot_path = "../benchmarks/plots/cpu_runtime.png"
+    plot_path = "../benchmarks/python_cpu_plot/cpu_runtime.png"
 
     plt.savefig(plot_path)
 

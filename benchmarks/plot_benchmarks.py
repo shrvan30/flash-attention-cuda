@@ -407,7 +407,7 @@ def generate_memory_svg(data, output_path):
     print(f"Generated {output_path} successfully.")
 
 if __name__ == '__main__':
-    csv_path = 'benchmarks/results/benchmark_results.csv'
+    csv_path = 'benchmarks/result/benchmark_results.csv'
     if not os.path.exists(csv_path):
         print(f"Error: CSV file not found at {csv_path}. Run the attention_engine benchmark first!")
         exit(1)
@@ -415,9 +415,9 @@ if __name__ == '__main__':
     results = read_results(csv_path)
     
     # Create output directories if needed
-    os.makedirs('benchmarks/results', exist_ok=True)
+    os.makedirs('benchmarks/result/plot', exist_ok=True)
     
-    generate_runtime_svg(results, 'benchmarks/results/runtime_scaling.svg')
-    generate_speedup_svg(results, 'benchmarks/results/speedup_comparison.svg')
-    generate_memory_svg(results, 'benchmarks/results/memory_scaling.svg')
+    generate_runtime_svg(results, 'benchmarks/result/plot/runtime_scaling.svg')
+    generate_speedup_svg(results, 'benchmarks/result/plot/speedup_comparison.svg')
+    generate_memory_svg(results, 'benchmarks/result/plot/memory_scaling.svg')
     print("All benchmark visualizations successfully generated!")

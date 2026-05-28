@@ -124,7 +124,7 @@ int main()
     const int GPU_ITERATIONS = 15;
 
     // Open CSV file for writing results
-    std::string csv_path = "benchmarks/results/benchmark_results.csv";
+    std::string csv_path = "benchmarks/result/benchmark_results.csv";
     std::ofstream csv_file(csv_path);
     if (!csv_file.is_open()) {
         std::cerr << "Error: Could not open " << csv_path << " for writing!\n";

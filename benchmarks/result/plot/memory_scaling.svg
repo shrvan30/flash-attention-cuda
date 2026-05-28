@@ -29,7 +29,7 @@
   <text x="90" y="38" fill="#F9FAFB" font-family="system-ui, sans-serif" font-size="18" font-weight="700">Attention Intermediate Memory Footprint</text>
   <text x="90" y="54" fill="#9CA3AF" font-family="system-ui, sans-serif" font-size="11">Sequence Length vs. Physical NxN Attention Matrix Materialization in HBM (lower is better)</text>
   <path d="M 90.0,428.59375 L 222.5,424.375 L 355.0,407.5 L 487.5,340.0 L 620.0,70.0" fill="none" stroke="#E74C3C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-  <text x="608.0" y="58.0" fill="#E74C3C" font-family="system-ui, sans-serif" font-size="12" font-weight="700" text-anchor="end">128 MB (O(NÂ²))</text>
+  <text x="608.0" y="58.0" fill="#E74C3C" font-family="system-ui, sans-serif" font-size="12" font-weight="700" text-anchor="end">128 MB (O(N²))</text>
   <circle cx="90.0" cy="428.59375" r="5" fill="#111827" stroke="#E74C3C" stroke-width="2.5" />
   <circle cx="222.5" cy="424.375" r="5" fill="#111827" stroke="#E74C3C" stroke-width="2.5" />
   <circle cx="355.0" cy="407.5" r="5" fill="#111827" stroke="#E74C3C" stroke-width="2.5" />
