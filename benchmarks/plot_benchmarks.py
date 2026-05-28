@@ -19,7 +19,7 @@ def read_results(csv_path):
     }
     """
     data = {}
-    with open(csv_path, 'r') as f:
+    with open(csv_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
             N = int(row['N'])
@@ -107,9 +107,9 @@ def generate_runtime_svg(data, output_path):
         if val >= 1000:
             label = f"{val // 1000} s"
         elif val == 0.01:
-            label = "10 µs"
+            label = "10 us"
         elif val == 0.1:
-            label = "100 µs"
+            label = "100 us"
             
         svg.append(f'  <text x="{margin_left - 12}" y="{y + 4}" fill="#9CA3AF" font-family="system-ui, sans-serif" font-size="11" text-anchor="end">{label}</text>')
 
@@ -164,7 +164,7 @@ def generate_runtime_svg(data, output_path):
     
     svg.append('</svg>')
     
-    with open(output_path, 'w') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         f.write("\n".join(svg))
     print(f"Generated {output_path} successfully.")
 
@@ -287,7 +287,7 @@ def generate_speedup_svg(data, output_path):
     
     svg.append('</svg>')
     
-    with open(output_path, 'w') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         f.write("\n".join(svg))
     print(f"Generated {output_path} successfully.")
 
@@ -366,7 +366,7 @@ def generate_memory_svg(data, output_path):
     svg.append(f'  <path d="{path_std}" fill="none" stroke="{colors["Standard"]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />')
     
     # Label the standard peak
-    svg.append(f'  <text x="{points_std[-1][0] - 12}" y="{points_std[-1][1] - 12}" fill="{colors["Standard"]}" font-family="system-ui, sans-serif" font-size="12" font-weight="700" text-anchor="end">128 MB (O(N²))</text>')
+    svg.append(f'  <text x="{points_std[-1][0] - 12}" y="{points_std[-1][1] - 12}" fill="{colors["Standard"]}" font-family="system-ui, sans-serif" font-size="12" font-weight="700" text-anchor="end">128 MB (O(N^2))</text>')
 
     for p in points_std:
         svg.append(f'  <circle cx="{p[0]}" cy="{p[1]}" r="5" fill="#111827" stroke="{colors["Standard"]}" stroke-width="2.5" />')
@@ -402,7 +402,7 @@ def generate_memory_svg(data, output_path):
     
     svg.append('</svg>')
     
-    with open(output_path, 'w') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         f.write("\n".join(svg))
     print(f"Generated {output_path} successfully.")
 
