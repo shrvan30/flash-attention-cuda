@@ -1,6 +1,6 @@
 # Benchmarks Folder
 
-This folder contains the scripts and the folders where we save our test results. We want to see how fast our GPU code is compared to our normal CPU code.
+This folder contains the scripts and the folders where I saved test results. i want to see how fast our GPU code is compared to normal CPU code.
 
 ### What is inside here?
 * **plot_benchmarks.py**: A Python script that takes the numbers from our GPU tests and turns them into nice graphs.
