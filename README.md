@@ -1,31 +1,31 @@
 # ⚡ FlashAttention-CUDA: Making Attention Calculations Much Faster
 
-This project shows how to make the "attention" part of AI models run incredibly fast. We start with a basic CPU program and make it faster step-by-step until we get a super fast GPU version called FlashAttention.
+This project shows how to make the "attention" part of AI models run incredibly fast. I start with a basic CPU program and make it faster step-by-step until I get a super fast GPU version called FlashAttention.
 
 ---
 
-## 🚀 The Steps We Took to Make It Faster
+## 🚀 The Steps I Took to Make It Faster
 
 The math formula for attention looks like this:
 $$\text{Attention}(Q, K, V) = \text{Softmax}\left(\frac{QK^T}{\sqrt{d}}\right)V$$
 
-We made four different versions to see how much we could speed things up:
+I made four different versions to see how much I could speed things up:
 
 ### 1. Basic CPU Version (`attention_cpu`)
 * **How it works**: A simple Python program that uses three loops inside each other to do the math.
 * **The problem**: It runs on just one CPU core. It also has to create giant tables in the computer's memory, which makes it very slow.
 
 ### 2. Simple GPU Version (`naive_attention`)
-* **How it works**: We use CUDA to run the math on a GPU. We give each thread on the GPU one small element of the output to calculate.
+* **How it works**: I use CUDA to run the math on a GPU. I give each thread on the GPU one small element of the output to calculate.
 * **The problem**: It is faster than the CPU, but it creates a lot of memory "traffic." All the threads keep reading the same data from the GPU's main memory at the same time, which slows things down.
 
 ### 3. Tiled GPU Version (`tiled_attention`)
 * **How it works**: Threads work together to load small blocks (tiles) of data into a super-fast memory right next to the GPU processor called shared memory (SRAM).
-* **The trick**: It uses a smart math trick called "online softmax" to calculate the values in small steps. This means we do not have to create giant tables in the slow memory.
+* **The trick**: It uses a smart math trick called "online softmax" to calculate the values in small steps. This means I do not have to create giant tables in the slow memory.
 
 ### 4. Fully Fused FlashAttention Version (`fused_attention`)
 * **How it works**: This is our fastest version. It uses every trick in the book to squeeze out maximum speed:
-    * **Local pockets (Registers)**: We put the data directly into the threads' local registers, which is the fastest storage possible.
+    * **Local pockets (Registers)**: I put the data directly into the threads' local registers, which is the fastest storage possible.
     * **Warp Shuffling**: Threads talk directly to their neighbors to find maximum values instantly without waiting.
     * **Smart division**: We do division calculations outside of the main loop so the GPU does not have to repeat them.
     * **Zero memory waste**: We never save intermediate calculations to the slow main memory. Everything is kept inside fast registers.
@@ -34,7 +34,7 @@ We made four different versions to see how much we could speed things up:
 
 ## 📊 Test Results
 
-We ran these tests on an NVIDIA GPU. We tested different sentence lengths ($N$) with a hidden dimension size ($d$) of 64.
+I ran these tests on an NVIDIA GPU. tested different sentence lengths ($N$) with a hidden dimension size ($d$) of 64.
 
 | Sequence Length ($N$) | Version | Avg Speed (ms) | Speedup vs CPU | Math Speed (GFLOPs/s) | Memory Bandwidth (GB/s) | Extra Memory Used |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
