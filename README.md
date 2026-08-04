@@ -26,9 +26,10 @@ Decode, single sequence, H=12, one token per call:
 
 | context | v2 decode | torch SDPA reference |
 | ---: | ---: | ---: |
-| 128 | 0.0123 ms · 81,614 tok/s | 0.0146 ms · 68,611 tok/s |
-| 512 | 0.0368 ms · 27,152 tok/s | 0.0199 ms · 50,169 tok/s |
-| 2048 | 0.0616 ms · 16,240 tok/s | 0.0213 ms · 46,950 tok/s |
+| 128 | 0.0122 ms · 82,064 tok/s | 0.0143 ms · 69,754 tok/s |
+| 512 | 0.0122 ms · 81,642 tok/s | 0.0188 ms · 53,170 tok/s |
+| 1024 | 0.0127 ms · 78,755 tok/s | 0.0189 ms · 52,978 tok/s |
+| 2048 | 0.0210 ms · 47,637 tok/s | 0.0213 ms · 47,011 tok/s |
 
 ![Prefill throughput, B=8, causal](docs/charts/prefill_b8_causal.svg)
 
@@ -42,27 +43,41 @@ overhead that a simpler kernel does not pay. `torch.sdpa`'s flash backend and th
 package track each other closely, as expected — SDPA dispatches to the same FlashAttention-2
 kernels.
 
-The gap is not a tuning gap, and the profile says where it comes from. v2 sustains 13.2 TFLOP/s,
-which is **37% of the RTX 3090's 35.6 TFLOP/s fp32 FMA peak** — a respectable fraction of the
-machine this kernel is using. The problem is which machine it uses: every multiply happens on
-the CUDA cores, and the operands arrive through shared memory at roughly 1.75 bytes per FMA,
+The gap is not a tuning gap, and the analysis says where it comes from. v2 sustains 13.8–14.2
+TFLOP/s, which is **38% of this card's 36.8 TFLOP/s fp32 FMA peak** — a respectable fraction of
+the machine this kernel is using. The problem is which machine it uses: every multiply happens
+on the CUDA cores, and the operands arrive through shared memory at roughly 1.75 bytes per FMA,
 while an SM sustains 1.0 byte per FMA. That caps this design near 57% of fp32 peak before any
 other overhead. flash-attn is not winning by being 4x better at the same game — it runs the
-matmuls on the tensor cores, whose fp16 peak is 71 TFLOP/s (2x the fp32 pipe) and which take
-their operands from registers via `ldmatrix`/`mma` instead of the shared-memory path that limits
-us. 59 TFLOP/s is 83% of *that* ceiling.
+matmuls on the tensor cores, whose fp16 peak is about 2x the fp32 pipe and which take their
+operands from registers via `ldmatrix`/`mma` instead of the shared-memory path that limits us.
+
+Confirming *which* unit is saturated needs hardware performance counters, which the development
+box does not expose; that measurement is deferred to a counter-capable card
+([bench/profile_ncu.sh](bench/profile_ncu.sh)). Everything claimed above comes from CUDA-event
+timings and the occupancy API — see [docs/profiles/analysis.md](docs/profiles/analysis.md).
 
 So closing the gap means writing a WMMA/MMA kernel, not shaving instructions off this one. That
 is deliberately out of scope for v2.0.0 and is the next planned step.
 
-**Decode is parallelism-starved at small batch**, and the benchmark shows it: v2 wins at
-context 128 and loses beyond about 256. With the split size fixed at `Sk = 512`, a single
-sequence at context 1024 launches `2 splits x 12 heads = 24 blocks` on an 82-SM card, so most of
-the GPU is idle and there are nowhere near enough memory requests in flight to reach peak
-bandwidth — the measured 83.7 GB/s is 8.9% of the card's 936 GB/s. The per-warp access pattern
-is already one fully coalesced 128-byte request per cached row, so the fix is the grid shape
-(a smaller `Sk`, or more sequences in the batch), not the inner loop. Full analysis in
-[docs/profiles/summary.md](docs/profiles/summary.md).
+**Decode picks its split size per launch.** A decode call has only `batch x heads x splits`
+blocks, so the split-K chunk decides whether the GPU is filled at all: with the chunk fixed at
+512 keys, one sequence at context 1024 launched 24 blocks on an 82-SM card and reached 8.9% of
+peak bandwidth, with an access pattern that was already one fully coalesced 128-byte request per
+cached row. `decode` now chooses the largest power-of-two chunk in [128, 1024] for which
+`batch · heads · ceil(S/chunk)` reaches two blocks per SM, falling back to the finest split when
+no chunk can — largest-that-fits rather than finest-available, so the merge pass stays cheap.
+At B=1, H=12 that is worth **2.2–3.2x**:
+
+| S | fixed Sk=512 | adaptive | speedup |
+| ---: | ---: | ---: | ---: |
+| 512 | 0.0420 ms · 37.6 GB/s | 0.0130 ms · 123.2 GB/s | 3.24x |
+| 1024 | 0.0421 ms · 75.0 GB/s | 0.0135 ms · 237.1 GB/s | 3.12x |
+| 2048 | 0.0436 ms · 144.9 GB/s | 0.0194 ms · 330.3 GB/s | 2.25x |
+
+The chunk size is a scheduling choice, not a numerical one — the log-sum-exp merge makes the
+result independent of it, and the suite asserts that across every chunk in the range. Full
+analysis in [docs/profiles/analysis.md](docs/profiles/analysis.md).
 
 ## What is in v2
 
@@ -115,13 +130,17 @@ cache lengths straddling the split boundary.
 ## Benchmark and profile
 
 ```bash
-python bench/run_bench.py                                     # -> docs/benchmarks.md
+python bench/run_bench.py       # timings and charts   -> docs/benchmarks.md
+python bench/run_analysis.py    # occupancy + roofline -> docs/profiles/analysis.md
 nsys profile -t cuda -o docs/profiles/prefill python bench/profile_workload.py prefill
+bash bench/profile_ncu.sh       # counter capture      -> docs/profiles/summary.md
 ```
 
 Full tables, chart sources and the machine description are in
-[docs/benchmarks.md](docs/benchmarks.md); the kernel-level analysis is in
-[docs/profiles/summary.md](docs/profiles/summary.md).
+[docs/benchmarks.md](docs/benchmarks.md); occupancy, the analytical roofline and the
+timeline notes are in [docs/profiles/analysis.md](docs/profiles/analysis.md).
+`bench/profile_ncu.sh` needs a card whose driver allows performance counters, and refuses
+to run with instructions where it does not.
 
 ## Layout
 
