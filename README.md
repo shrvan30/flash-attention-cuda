@@ -34,30 +34,34 @@ I made four different versions to see how much I could speed things up:
 
 ## 📊 Test Results
 
-I ran these tests on an NVIDIA GPU. tested different sentence lengths ($N$) with a hidden dimension size ($d$) of 64.
+**Benchmark hardware: NVIDIA GeForce RTX 3090 (Ampere, sm_86, 24 GB), CUDA 13.2, driver 595.71.05.**
+All v1 numbers below were measured on that GPU. The CPU baseline is the single-threaded C++
+reference in `src/main.cu`, running on the same machine.
 
-| Sequence Length ($N$) | Version | Avg Speed (ms) | Speedup vs CPU | Math Speed (GFLOPs/s) | Memory Bandwidth (GB/s) | Extra Memory Used |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **N = 256** | CPU Baseline | 9.268 ms | 1.0x | 1.81 GFLOPs/s | 0.03 GB/s | 0.5 MB |
-| | Simple GPU | 4.879 ms | 1.9x | 3.44 GFLOPs/s | 0.05 GB/s | 0.5 MB |
-| | Tiled GPU | 1.484 ms | 6.2x | 11.31 GFLOPs/s | 0.18 GB/s | 0.5 MB |
-| | **Fused Flash** | **0.856 ms** | **10.8x** | **19.59 GFLOPs/s** | **0.31 GB/s** | **0.0 MB** |
-| **N = 512** | CPU Baseline | 29.843 ms | 1.0x | 2.25 GFLOPs/s | 0.02 GB/s | 2.0 MB |
-| | Simple GPU | 19.410 ms | 1.5x | 3.46 GFLOPs/s | 0.03 GB/s | 2.0 MB |
-| | Tiled GPU | 2.980 ms | 10.0x | 22.52 GFLOPs/s | 0.18 GB/s | 2.0 MB |
-| | **Fused Flash** | **1.718 ms** | **17.4x** | **39.07 GFLOPs/s** | **0.31 GB/s** | **0.0 MB** |
-| **N = 1024** | CPU Baseline | 185.146 ms | 1.0x | 1.45 GFLOPs/s | 0.01 GB/s | 8.0 MB |
-| | Simple GPU | 77.503 ms | 2.4x | 3.46 GFLOPs/s | 0.01 GB/s | 8.0 MB |
-| | Tiled GPU | 5.810 ms | 31.9x | 46.21 GFLOPs/s | 0.18 GB/s | 8.0 MB |
-| | **Fused Flash** | **3.332 ms** | **55.6x** | **80.57 GFLOPs/s** | **0.31 GB/s** | **0.0 MB** |
-| **N = 2048** | CPU Baseline | 892.190 ms | 1.0x | 1.20 GFLOPs/s | 0.00 GB/s | 32.0 MB |
-| | Simple GPU | 271.245 ms | 3.3x | 3.96 GFLOPs/s | 0.01 GB/s | 32.0 MB |
-| | Tiled GPU | 11.712 ms | 76.2x | 91.68 GFLOPs/s | 0.18 GB/s | 32.0 MB |
-| | **Fused Flash** | **6.632 ms** | **134.5x** | **161.90 GFLOPs/s** | **0.32 GB/s** | **0.0 MB** |
-| **N = 4096** | CPU Baseline | 3598.747 ms | 1.0x | 1.19 GFLOPs/s | 0.00 GB/s | 128.0 MB |
-| | Simple GPU | 1007.317 ms | 3.6x | 4.26 GFLOPs/s | 0.00 GB/s | 128.0 MB |
-| | Tiled GPU | 27.711 ms | 129.9x | 154.99 GFLOPs/s | 0.15 GB/s | 128.0 MB |
-| | **Fused Flash** | **14.142 ms** | **254.5x** | **303.71 GFLOPs/s** | **0.30 GB/s** | **0.0 MB** |
+Tested different sentence lengths ($N$) with a hidden dimension size ($d$) of 64.
+
+| Sequence Length ($N$) | Version | Avg Speed (ms) | Speedup vs CPU | Math Speed (GFLOPs/s) | Extra Memory Used |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **N = 256** | CPU Baseline | 5.576 ms | 1.0x | 3.01 GFLOPs/s | 0.5 MB |
+| | Simple GPU | 3.887 ms | 1.4x | 4.32 GFLOPs/s | 0.5 MB |
+| | Tiled GPU | 1.179 ms | 4.7x | 14.23 GFLOPs/s | 0.5 MB |
+| | **Fused Flash** | **0.682 ms** | **8.2x** | **24.61 GFLOPs/s** | **0.0 MB** |
+| **N = 512** | CPU Baseline | 22.923 ms | 1.0x | 2.93 GFLOPs/s | 2.0 MB |
+| | Simple GPU | 14.674 ms | 1.6x | 4.57 GFLOPs/s | 2.0 MB |
+| | Tiled GPU | 2.209 ms | 10.4x | 30.38 GFLOPs/s | 2.0 MB |
+| | **Fused Flash** | **1.214 ms** | **18.9x** | **55.27 GFLOPs/s** | **0.0 MB** |
+| **N = 1024** | CPU Baseline | 94.003 ms | 1.0x | 2.86 GFLOPs/s | 8.0 MB |
+| | Simple GPU | 55.028 ms | 1.7x | 4.88 GFLOPs/s | 8.0 MB |
+| | Tiled GPU | 4.125 ms | 22.8x | 65.08 GFLOPs/s | 8.0 MB |
+| | **Fused Flash** | **2.365 ms** | **39.8x** | **113.52 GFLOPs/s** | **0.0 MB** |
+| **N = 2048** | CPU Baseline | 394.289 ms | 1.0x | 2.72 GFLOPs/s | 32.0 MB |
+| | Simple GPU | 193.577 ms | 2.0x | 5.55 GFLOPs/s | 32.0 MB |
+| | Tiled GPU | 8.372 ms | 47.1x | 128.25 GFLOPs/s | 32.0 MB |
+| | **Fused Flash** | **4.754 ms** | **82.9x** | **225.86 GFLOPs/s** | **0.0 MB** |
+| **N = 4096** | CPU Baseline | 2061.362 ms | 1.0x | 2.08 GFLOPs/s | 128.0 MB |
+| | Simple GPU | 720.671 ms | 2.9x | 5.96 GFLOPs/s | 128.0 MB |
+| | Tiled GPU | 19.705 ms | 104.6x | 217.97 GFLOPs/s | 128.0 MB |
+| | **Fused Flash** | **10.126 ms** | **203.6x** | **424.16 GFLOPs/s** | **0.0 MB** |
 
 ---
 
@@ -69,7 +73,7 @@ Shows how slow the CPU and normal GPU versions get as the size of our data grows
 ![Execution Runtime Scaling](benchmarks/result/plot/runtime_scaling.svg)
 
 ### 2. GPU Speedup vs. CPU Baseline
-Shows how many times faster the GPU versions are than our CPU baseline. The Fused Flash version is **254.5 times faster** at size 4096!
+Shows how many times faster the GPU versions are than our CPU baseline. The Fused Flash version is **203.6 times faster** at size 4096!
 
 ![Speedup Comparison](benchmarks/result/plot/speedup_comparison.svg)
 
@@ -91,6 +95,28 @@ The real secret is **how it reads and writes memory**:
 3. **The Kitchen Fridge (FlashAttention)**: FlashAttention is like loading all the ingredients into your kitchen fridge (SRAM/Registers) once, doing all the cooking on the counter, and only walking out to the trash can at the very end. 
 
 By keeping all the middle steps inside fast GPU registers instead of writing them back to slow main memory, we avoid the slow memory traffic entirely.
+
+---
+
+## ⚠️ v1 limitations
+
+The kernels described above (tagged `v1.0.0`, now under `src/legacy/`) are a teaching
+progression, not a drop-in attention implementation. Concretely:
+
+* **Single head, single sequence.** The kernels take a bare `(N, d)` Q/K/V and have no batch
+  or head dimension, so they cannot serve a real transformer layer without an external loop.
+* **fp32 only.** Everything is stored and computed in fp32. Production attention runs fp16/bf16
+  inputs with fp32 accumulation, which halves memory traffic and unlocks tensor cores.
+* **No causal masking.** Only full bidirectional attention is implemented, so the kernels cannot
+  be used for autoregressive decoding.
+* **No decode path.** There is no single-query-vs-KV-cache kernel, which is the shape that
+  dominates inference latency.
+* **No tensor cores.** All matmuls run on the CUDA cores via plain FMA, leaving most of the
+  card's math throughput unused.
+* **Executable only.** The code builds a CMake benchmark binary; there is no Python/PyTorch
+  binding, so it cannot be called from a model.
+
+Every one of these is addressed in v2.
 
 ---
 

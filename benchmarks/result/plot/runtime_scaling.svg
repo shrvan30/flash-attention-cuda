@@ -34,35 +34,35 @@
   <text x="620.0" y="454" fill="#9CA3AF" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle" font-weight="500">N=4096</text>
   <text x="90" y="38" fill="#F9FAFB" font-family="system-ui, sans-serif" font-size="18" font-weight="700">Attention Runtime Scaling (Log Scale)</text>
   <text x="90" y="54" fill="#9CA3AF" font-family="system-ui, sans-serif" font-size="11">Sequence Length vs. Average Execution Time (d=64, lower is better)</text>
-  <path d="M 90.0,277.41224367668383 L 222.5,251.29374052780662 L 355.0,210.52783426476827 L 487.5,175.40505050984243 L 620.0,144.2550565658558" fill="none" stroke="#7F8C8D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-  <circle cx="90.0" cy="277.41224367668383" r="5" fill="#111827" stroke="#7F8C8D" stroke-width="2.5" />
-  <circle cx="222.5" cy="251.29374052780662" r="5" fill="#111827" stroke="#7F8C8D" stroke-width="2.5" />
-  <circle cx="355.0" cy="210.52783426476827" r="5" fill="#111827" stroke="#7F8C8D" stroke-width="2.5" />
-  <circle cx="487.5" cy="175.40505050984243" r="5" fill="#111827" stroke="#7F8C8D" stroke-width="2.5" />
-  <circle cx="620.0" cy="144.2550565658558" r="5" fill="#111827" stroke="#7F8C8D" stroke-width="2.5" />
-  <path d="M 90.0,291.7428033853538 L 222.5,260.90108361786463 L 355.0,229.97793383431826 L 487.5,201.99853901605096 L 620.0,172.6942450784756" fill="none" stroke="#E74C3C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-  <circle cx="90.0" cy="291.7428033853538" r="5" fill="#111827" stroke="#E74C3C" stroke-width="2.5" />
-  <circle cx="222.5" cy="260.90108361786463" r="5" fill="#111827" stroke="#E74C3C" stroke-width="2.5" />
-  <circle cx="355.0" cy="229.97793383431826" r="5" fill="#111827" stroke="#E74C3C" stroke-width="2.5" />
-  <circle cx="487.5" cy="201.99853901605096" r="5" fill="#111827" stroke="#E74C3C" stroke-width="2.5" />
-  <circle cx="620.0" cy="172.6942450784756" r="5" fill="#111827" stroke="#E74C3C" stroke-width="2.5" />
-  <path d="M 90.0,318.32640702980456 L 222.5,302.7521938571764 L 355.0,287.8440618722233 L 487.5,272.18564168759144 L 620.0,252.94955731597491" fill="none" stroke="#3498DB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-  <circle cx="90.0" cy="318.32640702980456" r="5" fill="#111827" stroke="#3498DB" stroke-width="2.5" />
-  <circle cx="222.5" cy="302.7521938571764" r="5" fill="#111827" stroke="#3498DB" stroke-width="2.5" />
-  <circle cx="355.0" cy="287.8440618722233" r="5" fill="#111827" stroke="#3498DB" stroke-width="2.5" />
-  <circle cx="487.5" cy="272.18564168759144" r="5" fill="#111827" stroke="#3498DB" stroke-width="2.5" />
-  <circle cx="620.0" cy="252.94955731597491" r="5" fill="#111827" stroke="#3498DB" stroke-width="2.5" />
-  <path d="M 90.0,330.6067392027488 L 222.5,315.06232303252864 L 355.0,300.2619586296346 L 487.5,284.8869544172975 L 620.0,267.97420240284396" fill="none" stroke="#2ECC71" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" filter="url(#fused-glow)" />
-  <circle cx="90.0" cy="330.6067392027488" r="5" fill="#111827" stroke="#2ECC71" stroke-width="2.5" />
-  <circle cx="90.0" cy="330.6067392027488" r="2" fill="#2ECC71" />
-  <circle cx="222.5" cy="315.06232303252864" r="5" fill="#111827" stroke="#2ECC71" stroke-width="2.5" />
-  <circle cx="222.5" cy="315.06232303252864" r="2" fill="#2ECC71" />
-  <circle cx="355.0" cy="300.2619586296346" r="5" fill="#111827" stroke="#2ECC71" stroke-width="2.5" />
-  <circle cx="355.0" cy="300.2619586296346" r="2" fill="#2ECC71" />
-  <circle cx="487.5" cy="284.8869544172975" r="5" fill="#111827" stroke="#2ECC71" stroke-width="2.5" />
-  <circle cx="487.5" cy="284.8869544172975" r="2" fill="#2ECC71" />
-  <circle cx="620.0" cy="267.97420240284396" r="5" fill="#111827" stroke="#2ECC71" stroke-width="2.5" />
-  <circle cx="620.0" cy="267.97420240284396" r="2" fill="#2ECC71" />
+  <path d="M 90.0,288.76106424184565 L 222.5,257.1862343597436 L 355.0,225.66695005388863 L 487.5,193.64381742623385 L 620.0,156.70065942813824" fill="none" stroke="#7F8C8D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="90.0" cy="288.76106424184565" r="5" fill="#111827" stroke="#7F8C8D" stroke-width="2.5" />
+  <circle cx="222.5" cy="257.1862343597436" r="5" fill="#111827" stroke="#7F8C8D" stroke-width="2.5" />
+  <circle cx="355.0" cy="225.66695005388863" r="5" fill="#111827" stroke="#7F8C8D" stroke-width="2.5" />
+  <circle cx="487.5" cy="193.64381742623385" r="5" fill="#111827" stroke="#7F8C8D" stroke-width="2.5" />
+  <circle cx="620.0" cy="156.70065942813824" r="5" fill="#111827" stroke="#7F8C8D" stroke-width="2.5" />
+  <path d="M 90.0,296.8180998570232 L 222.5,267.1483247001248 L 355.0,237.62708194012274 L 487.5,209.53323545688264 L 620.0,180.17352333410946" fill="none" stroke="#E74C3C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="90.0" cy="296.8180998570232" r="5" fill="#111827" stroke="#E74C3C" stroke-width="2.5" />
+  <circle cx="222.5" cy="267.1483247001248" r="5" fill="#111827" stroke="#E74C3C" stroke-width="2.5" />
+  <circle cx="355.0" cy="237.62708194012274" r="5" fill="#111827" stroke="#E74C3C" stroke-width="2.5" />
+  <circle cx="487.5" cy="209.53323545688264" r="5" fill="#111827" stroke="#E74C3C" stroke-width="2.5" />
+  <circle cx="620.0" cy="180.17352333410946" r="5" fill="#111827" stroke="#E74C3C" stroke-width="2.5" />
+  <path d="M 90.0,323.4665198922679 L 222.5,309.44227319008394 L 355.0,295.4929155936534 L 487.5,279.68285527678955 L 620.0,260.56498031502247" fill="none" stroke="#3498DB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="90.0" cy="323.4665198922679" r="5" fill="#111827" stroke="#3498DB" stroke-width="2.5" />
+  <circle cx="222.5" cy="309.44227319008394" r="5" fill="#111827" stroke="#3498DB" stroke-width="2.5" />
+  <circle cx="355.0" cy="295.4929155936534" r="5" fill="#111827" stroke="#3498DB" stroke-width="2.5" />
+  <circle cx="487.5" cy="279.68285527678955" r="5" fill="#111827" stroke="#3498DB" stroke-width="2.5" />
+  <circle cx="620.0" cy="260.56498031502247" r="5" fill="#111827" stroke="#3498DB" stroke-width="2.5" />
+  <path d="M 90.0,335.6978367151755 L 222.5,322.80664349463285 L 355.0,307.92122224350607 L 487.5,292.32220106397756 L 620.0,275.4352828267588" fill="none" stroke="#2ECC71" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" filter="url(#fused-glow)" />
+  <circle cx="90.0" cy="335.6978367151755" r="5" fill="#111827" stroke="#2ECC71" stroke-width="2.5" />
+  <circle cx="90.0" cy="335.6978367151755" r="2" fill="#2ECC71" />
+  <circle cx="222.5" cy="322.80664349463285" r="5" fill="#111827" stroke="#2ECC71" stroke-width="2.5" />
+  <circle cx="222.5" cy="322.80664349463285" r="2" fill="#2ECC71" />
+  <circle cx="355.0" cy="307.92122224350607" r="5" fill="#111827" stroke="#2ECC71" stroke-width="2.5" />
+  <circle cx="355.0" cy="307.92122224350607" r="2" fill="#2ECC71" />
+  <circle cx="487.5" cy="292.32220106397756" r="5" fill="#111827" stroke="#2ECC71" stroke-width="2.5" />
+  <circle cx="487.5" cy="292.32220106397756" r="2" fill="#2ECC71" />
+  <circle cx="620.0" cy="275.4352828267588" r="5" fill="#111827" stroke="#2ECC71" stroke-width="2.5" />
+  <circle cx="620.0" cy="275.4352828267588" r="2" fill="#2ECC71" />
   <rect x="635" y="70" width="150" height="150" fill="#1F2937" rx="8" stroke="#374151" stroke-width="1" />
   <rect x="645" y="74" width="14" height="14" fill="#7F8C8D" rx="3" />
   <text x="667" y="85" fill="#F3F4F6" font-family="system-ui, sans-serif" font-size="12" font-weight="600">CPU Kernel</text>
