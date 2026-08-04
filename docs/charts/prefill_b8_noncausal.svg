@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="460" viewBox="0 0 780 460" font-family="DejaVu Sans, Arial, sans-serif">
+<rect width="780" height="460" fill="#ffffff"/>
+<text x="265" y="26" text-anchor="middle" font-size="17" font-weight="bold" fill="#111111">Prefill throughput — B=8, H=12, non-causal</text>
+<line x1="78" y1="402.0" x2="530" y2="402.0" stroke="#e6e6e6" stroke-width="1"/>
+<text x="69" y="406.0" text-anchor="end" font-size="11" fill="#555555">0</text>
+<line x1="78" y1="330.8" x2="530" y2="330.8" stroke="#e6e6e6" stroke-width="1"/>
+<text x="69" y="334.8" text-anchor="end" font-size="11" fill="#555555">14.9</text>
+<line x1="78" y1="259.6" x2="530" y2="259.6" stroke="#e6e6e6" stroke-width="1"/>
+<text x="69" y="263.6" text-anchor="end" font-size="11" fill="#555555">29.9</text>
+<line x1="78" y1="188.4" x2="530" y2="188.4" stroke="#e6e6e6" stroke-width="1"/>
+<text x="69" y="192.4" text-anchor="end" font-size="11" fill="#555555">44.8</text>
+<line x1="78" y1="117.2" x2="530" y2="117.2" stroke="#e6e6e6" stroke-width="1"/>
+<text x="69" y="121.2" text-anchor="end" font-size="11" fill="#555555">59.8</text>
+<line x1="78" y1="46.0" x2="530" y2="46.0" stroke="#e6e6e6" stroke-width="1"/>
+<text x="69" y="50.0" text-anchor="end" font-size="11" fill="#555555">74.7</text>
+<line x1="78.0" y1="402" x2="78.0" y2="407" stroke="#888888" stroke-width="1"/>
+<text x="78.0" y="422" text-anchor="middle" font-size="11" fill="#555555">128</text>
+<line x1="168.4" y1="402" x2="168.4" y2="407" stroke="#888888" stroke-width="1"/>
+<text x="168.4" y="422" text-anchor="middle" font-size="11" fill="#555555">256</text>
+<line x1="258.8" y1="402" x2="258.8" y2="407" stroke="#888888" stroke-width="1"/>
+<text x="258.8" y="422" text-anchor="middle" font-size="11" fill="#555555">512</text>
+<line x1="349.2" y1="402" x2="349.2" y2="407" stroke="#888888" stroke-width="1"/>
+<text x="349.2" y="422" text-anchor="middle" font-size="11" fill="#555555">1024</text>
+<line x1="439.6" y1="402" x2="439.6" y2="407" stroke="#888888" stroke-width="1"/>
+<text x="439.6" y="422" text-anchor="middle" font-size="11" fill="#555555">2048</text>
+<line x1="530.0" y1="402" x2="530.0" y2="407" stroke="#888888" stroke-width="1"/>
+<text x="530.0" y="422" text-anchor="middle" font-size="11" fill="#555555">4096</text>
+<rect x="78" y="46" width="452" height="356" fill="none" stroke="#999999" stroke-width="1"/>
+<text x="304" y="444" text-anchor="middle" font-size="12" fill="#333333">sequence length N</text>
+<text x="18" y="224" text-anchor="middle" font-size="12" fill="#333333" transform="rotate(-90 18 224)">TFLOP/s</text>
+<path d="M78.0,361.8 L168.4,337.4 L258.8,332.1 L349.2,335.7 L439.6,334.8 L530.0,334.3" fill="none" stroke="#1f77b4" stroke-width="2.2"/>
+<circle cx="78.0" cy="361.8" r="3.1" fill="#1f77b4"/>
+<circle cx="168.4" cy="337.4" r="3.1" fill="#1f77b4"/>
+<circle cx="258.8" cy="332.1" r="3.1" fill="#1f77b4"/>
+<circle cx="349.2" cy="335.7" r="3.1" fill="#1f77b4"/>
+<circle cx="439.6" cy="334.8" r="3.1" fill="#1f77b4"/>
+<circle cx="530.0" cy="334.3" r="3.1" fill="#1f77b4"/>
+<line x1="544" y1="52" x2="572" y2="52" stroke="#1f77b4" stroke-width="2.2"/>
+<text x="578" y="56" font-size="11" fill="#333333">v2 prefill</text>
+<path d="M78.0,340.1 L168.4,211.5 L258.8,153.2 L349.2,119.2 L439.6,91.5 L530.0,84.1" fill="none" stroke="#2ca02c" stroke-width="2.2"/>
+<circle cx="78.0" cy="340.1" r="3.1" fill="#2ca02c"/>
+<circle cx="168.4" cy="211.5" r="3.1" fill="#2ca02c"/>
+<circle cx="258.8" cy="153.2" r="3.1" fill="#2ca02c"/>
+<circle cx="349.2" cy="119.2" r="3.1" fill="#2ca02c"/>
+<circle cx="439.6" cy="91.5" r="3.1" fill="#2ca02c"/>
+<circle cx="530.0" cy="84.1" r="3.1" fill="#2ca02c"/>
+<line x1="544" y1="73" x2="572" y2="73" stroke="#2ca02c" stroke-width="2.2"/>
+<text x="578" y="77" font-size="11" fill="#333333">torch SDPA (flash backend)</text>
+<path d="M78.0,370.9 L168.4,277.7 L258.8,171.3 L349.2,121.2 L439.6,102.6 L530.0,100.7" fill="none" stroke="#d62728" stroke-width="2.2"/>
+<circle cx="78.0" cy="370.9" r="3.1" fill="#d62728"/>
+<circle cx="168.4" cy="277.7" r="3.1" fill="#d62728"/>
+<circle cx="258.8" cy="171.3" r="3.1" fill="#d62728"/>
+<circle cx="349.2" cy="121.2" r="3.1" fill="#d62728"/>
+<circle cx="439.6" cy="102.6" r="3.1" fill="#d62728"/>
+<circle cx="530.0" cy="100.7" r="3.1" fill="#d62728"/>
+<line x1="544" y1="94" x2="572" y2="94" stroke="#d62728" stroke-width="2.2"/>
+<text x="578" y="98" font-size="11" fill="#333333">flash-attn (official)</text>
+<path d="M78.0,401.9 L168.4,401.9 L258.8,401.7 L349.2,401.4 L439.6,400.8 L530.0,399.8" fill="none" stroke="#9467bd" stroke-width="2.2"/>
+<circle cx="78.0" cy="401.9" r="3.1" fill="#9467bd"/>
+<circle cx="168.4" cy="401.9" r="3.1" fill="#9467bd"/>
+<circle cx="258.8" cy="401.7" r="3.1" fill="#9467bd"/>
+<circle cx="349.2" cy="401.4" r="3.1" fill="#9467bd"/>
+<circle cx="439.6" cy="400.8" r="3.1" fill="#9467bd"/>
+<circle cx="530.0" cy="399.8" r="3.1" fill="#9467bd"/>
+<line x1="544" y1="115" x2="572" y2="115" stroke="#9467bd" stroke-width="2.2"/>
+<text x="578" y="119" font-size="11" fill="#333333">v1 fused (fp32, 1 head)</text>
+<path d="M78.0,401.9 L168.4,401.9 L258.8,401.7 L349.2,401.5 L439.6,401.0 L530.0,400.1" fill="none" stroke="#8c564b" stroke-width="2.2"/>
+<circle cx="78.0" cy="401.9" r="3.1" fill="#8c564b"/>
+<circle cx="168.4" cy="401.9" r="3.1" fill="#8c564b"/>
+<circle cx="258.8" cy="401.7" r="3.1" fill="#8c564b"/>
+<circle cx="349.2" cy="401.5" r="3.1" fill="#8c564b"/>
+<circle cx="439.6" cy="401.0" r="3.1" fill="#8c564b"/>
+<circle cx="530.0" cy="400.1" r="3.1" fill="#8c564b"/>
+<line x1="544" y1="136" x2="572" y2="136" stroke="#8c564b" stroke-width="2.2"/>
+<text x="578" y="140" font-size="11" fill="#333333">v1 tiled (fp32, 1 head)</text>
+</svg>

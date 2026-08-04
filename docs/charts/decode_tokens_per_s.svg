@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="460" viewBox="0 0 780 460" font-family="DejaVu Sans, Arial, sans-serif">
+<rect width="780" height="460" fill="#ffffff"/>
+<text x="265" y="26" text-anchor="middle" font-size="17" font-weight="bold" fill="#111111">Decode throughput — single sequence, H=12</text>
+<line x1="78" y1="402.0" x2="530" y2="402.0" stroke="#e6e6e6" stroke-width="1"/>
+<text x="69" y="406.0" text-anchor="end" font-size="11" fill="#555555">0</text>
+<line x1="78" y1="330.8" x2="530" y2="330.8" stroke="#e6e6e6" stroke-width="1"/>
+<text x="69" y="334.8" text-anchor="end" font-size="11" fill="#555555">1.83e+04</text>
+<line x1="78" y1="259.6" x2="530" y2="259.6" stroke="#e6e6e6" stroke-width="1"/>
+<text x="69" y="263.6" text-anchor="end" font-size="11" fill="#555555">3.66e+04</text>
+<line x1="78" y1="188.4" x2="530" y2="188.4" stroke="#e6e6e6" stroke-width="1"/>
+<text x="69" y="192.4" text-anchor="end" font-size="11" fill="#555555">5.48e+04</text>
+<line x1="78" y1="117.2" x2="530" y2="117.2" stroke="#e6e6e6" stroke-width="1"/>
+<text x="69" y="121.2" text-anchor="end" font-size="11" fill="#555555">7.31e+04</text>
+<line x1="78" y1="46.0" x2="530" y2="46.0" stroke="#e6e6e6" stroke-width="1"/>
+<text x="69" y="50.0" text-anchor="end" font-size="11" fill="#555555">9.14e+04</text>
+<line x1="78.0" y1="402" x2="78.0" y2="407" stroke="#888888" stroke-width="1"/>
+<text x="78.0" y="422" text-anchor="middle" font-size="11" fill="#555555">128</text>
+<line x1="191.0" y1="402" x2="191.0" y2="407" stroke="#888888" stroke-width="1"/>
+<text x="191.0" y="422" text-anchor="middle" font-size="11" fill="#555555">256</text>
+<line x1="304.0" y1="402" x2="304.0" y2="407" stroke="#888888" stroke-width="1"/>
+<text x="304.0" y="422" text-anchor="middle" font-size="11" fill="#555555">512</text>
+<line x1="417.0" y1="402" x2="417.0" y2="407" stroke="#888888" stroke-width="1"/>
+<text x="417.0" y="422" text-anchor="middle" font-size="11" fill="#555555">1024</text>
+<line x1="530.0" y1="402" x2="530.0" y2="407" stroke="#888888" stroke-width="1"/>
+<text x="530.0" y="422" text-anchor="middle" font-size="11" fill="#555555">2048</text>
+<rect x="78" y="46" width="452" height="356" fill="none" stroke="#999999" stroke-width="1"/>
+<text x="304" y="444" text-anchor="middle" font-size="12" fill="#333333">context length</text>
+<text x="18" y="224" text-anchor="middle" font-size="12" fill="#333333" transform="rotate(-90 18 224)">tokens/s</text>
+<path d="M78.0,84.1 L191.0,210.9 L304.0,296.3 L417.0,296.4 L530.0,338.8" fill="none" stroke="#1f77b4" stroke-width="2.2"/>
+<circle cx="78.0" cy="84.1" r="3.1" fill="#1f77b4"/>
+<circle cx="191.0" cy="210.9" r="3.1" fill="#1f77b4"/>
+<circle cx="304.0" cy="296.3" r="3.1" fill="#1f77b4"/>
+<circle cx="417.0" cy="296.4" r="3.1" fill="#1f77b4"/>
+<circle cx="530.0" cy="338.8" r="3.1" fill="#1f77b4"/>
+<line x1="544" y1="52" x2="572" y2="52" stroke="#1f77b4" stroke-width="2.2"/>
+<text x="578" y="56" font-size="11" fill="#333333">v2 decode</text>
+<path d="M78.0,134.8 L191.0,141.0 L304.0,206.6 L417.0,197.9 L530.0,219.1" fill="none" stroke="#2ca02c" stroke-width="2.2"/>
+<circle cx="78.0" cy="134.8" r="3.1" fill="#2ca02c"/>
+<circle cx="191.0" cy="141.0" r="3.1" fill="#2ca02c"/>
+<circle cx="304.0" cy="206.6" r="3.1" fill="#2ca02c"/>
+<circle cx="417.0" cy="197.9" r="3.1" fill="#2ca02c"/>
+<circle cx="530.0" cy="219.1" r="3.1" fill="#2ca02c"/>
+<line x1="544" y1="73" x2="572" y2="73" stroke="#2ca02c" stroke-width="2.2"/>
+<text x="578" y="77" font-size="11" fill="#333333">torch SDPA (decode reference)</text>
+</svg>
