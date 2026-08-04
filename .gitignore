@@ -39,6 +39,10 @@ compile_commands.json
 *.sqlite
 *.nsys-rep
 
+# ...except the committed reference profiles
+!docs/profiles/*.ncu-rep
+!docs/profiles/*.nsys-rep
+
 # =========================================================
 # Python cache
 # =========================================================
