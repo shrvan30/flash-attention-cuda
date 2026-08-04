@@ -10,10 +10,10 @@ add_executable(
     attention_engine
 
     src/main.cu
-    src/naive_attention.cu
-    src/tiled_attention.cu
-    src/softmax_stable.cu
-    src/fused_attention.cu
+    src/legacy/naive_attention.cu
+    src/legacy/tiled_attention.cu
+    src/legacy/softmax_stable.cu
+    src/legacy/fused_attention.cu
 )
 
 set_target_properties(
