@@ -25,9 +25,10 @@ setup(
     version="2.0.0",
     description="Batched multi-head causal FlashAttention CUDA kernels (head_dim=64)",
     license="MIT",
+    packages=["flashattn_cuda"],
     ext_modules=[
         CUDAExtension(
-            name="flashattn_cuda",
+            name="flashattn_cuda._C",
             sources=[os.path.join(this_dir, s) for s in sources],
             extra_compile_args={
                 "cxx": ["-O3", "-std=c++17"],
