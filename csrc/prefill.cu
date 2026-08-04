@@ -53,14 +53,77 @@ __device__ __forceinline__ int swizzle(int col, int dd) {
   return col ^ (4 * (dd >> 3));
 }
 
-// Stage `tile_rows` rows of a row-major (·, 64) fp16 matrix into a dim-major
-// fp32 shared tile of shape [64][tile_rows]. Rows past `rows_valid` are zeroed.
-template <int TILE_ROWS>
-__device__ __forceinline__ void stage_dim_major(const __half *__restrict__ src,
-                                                int row0, int rows_valid,
+// A tile is staged in two halves so the global loads for tile t+1 can be issued
+// before the arithmetic of tile t: `fetch_tile` leaves the raw fp16 in
+// registers, and `store_*` converts and writes them to shared memory after the
+// barrier. With only 8 warps resident per SM there is no other warp to hide the
+// global latency behind, so the prefetch has to be explicit.
+constexpr int kStageIters = (kBc * (kHeadDim / 8)) / kThreads;
+static_assert(kStageIters * kThreads == kBc * (kHeadDim / 8),
+              "threads must divide the staging work evenly");
+
+__device__ __forceinline__ void fetch_tile(const __half *__restrict__ src,
+                                           int row0, int rows_valid,
+                                           float4 *__restrict__ raw, int tid) {
+#pragma unroll
+  for (int it = 0; it < kStageIters; ++it) {
+    const int idx = tid + it * kThreads;
+    const int r = idx >> 3;
+    const int dd0 = (idx & 7) * 8;
+    raw[it] = (r < rows_valid)
+                  ? *reinterpret_cast<const float4 *>(
+                        src + static_cast<size_t>(row0 + r) * kHeadDim + dd0)
+                  : make_float4(0.f, 0.f, 0.f, 0.f);
+  }
+}
+
+// Write a fetched tile into a dim-major fp32 shared tile of shape [64][kBc].
+__device__ __forceinline__ void store_dim_major(const float4 *__restrict__ raw,
                                                 float *__restrict__ smem,
                                                 int tid) {
-  constexpr int kPairs = TILE_ROWS * (kHeadDim / 8);
+#pragma unroll
+  for (int it = 0; it < kStageIters; ++it) {
+    const int idx = tid + it * kThreads;
+    const int r = idx >> 3;
+    const int chunk = idx & 7;
+    const int dd0 = chunk * 8;
+    const int col = r ^ (4 * chunk);
+    const __half2 *packed = reinterpret_cast<const __half2 *>(&raw[it]);
+#pragma unroll
+    for (int t = 0; t < 4; ++t) {
+      const float2 f = __half22float2(packed[t]);
+      smem[(dd0 + 2 * t) * kBc + col] = f.x;
+      smem[(dd0 + 2 * t + 1) * kBc + col] = f.y;
+    }
+  }
+}
+
+// Write a fetched tile into a row-major fp32 shared tile of shape [kBc][64].
+__device__ __forceinline__ void store_row_major(const float4 *__restrict__ raw,
+                                                float *__restrict__ smem,
+                                                int tid) {
+#pragma unroll
+  for (int it = 0; it < kStageIters; ++it) {
+    const int idx = tid + it * kThreads;
+    const int r = idx >> 3;
+    const int dd0 = (idx & 7) * 8;
+    const __half2 *packed = reinterpret_cast<const __half2 *>(&raw[it]);
+#pragma unroll
+    for (int t = 0; t < 4; ++t) {
+      const float2 f = __half22float2(packed[t]);
+      smem[r * kHeadDim + dd0 + 2 * t] = f.x;
+      smem[r * kHeadDim + dd0 + 2 * t + 1] = f.y;
+    }
+  }
+}
+
+// Q is staged once per block, and folding the softmax scale in here removes a
+// multiply per score from every tile.
+__device__ __forceinline__ void stage_query(const __half *__restrict__ src,
+                                            int row0, int rows_valid,
+                                            float *__restrict__ smem, int tid,
+                                            float scale) {
+  constexpr int kPairs = kBr * (kHeadDim / 8);
 #pragma unroll
   for (int idx = tid; idx < kPairs; idx += kThreads) {
     const int r = idx >> 3;
@@ -77,36 +140,8 @@ __device__ __forceinline__ void stage_dim_major(const __half *__restrict__ src,
 #pragma unroll
     for (int t = 0; t < 4; ++t) {
       const float2 f = __half22float2(packed[t]);
-      smem[(dd0 + 2 * t) * TILE_ROWS + col] = f.x;
-      smem[(dd0 + 2 * t + 1) * TILE_ROWS + col] = f.y;
-    }
-  }
-}
-
-// Stage `tile_rows` rows into a row-major fp32 shared tile of shape [rows][64].
-template <int TILE_ROWS>
-__device__ __forceinline__ void stage_row_major(const __half *__restrict__ src,
-                                                int row0, int rows_valid,
-                                                float *__restrict__ smem,
-                                                int tid) {
-  constexpr int kPairs = TILE_ROWS * (kHeadDim / 8);
-#pragma unroll
-  for (int idx = tid; idx < kPairs; idx += kThreads) {
-    const int r = idx >> 3;
-    const int chunk = idx & 7;
-    const int dd0 = chunk * 8;
-
-    float4 raw = make_float4(0.f, 0.f, 0.f, 0.f);
-    if (r < rows_valid) {
-      raw = *reinterpret_cast<const float4 *>(
-          src + static_cast<size_t>(row0 + r) * kHeadDim + dd0);
-    }
-    const __half2 *packed = reinterpret_cast<const __half2 *>(&raw);
-#pragma unroll
-    for (int t = 0; t < 4; ++t) {
-      const float2 f = __half22float2(packed[t]);
-      smem[r * kHeadDim + dd0 + 2 * t] = f.x;
-      smem[r * kHeadDim + dd0 + 2 * t + 1] = f.y;
+      smem[(dd0 + 2 * t) * kBr + col] = f.x * scale;
+      smem[(dd0 + 2 * t + 1) * kBr + col] = f.y * scale;
     }
   }
 }
@@ -153,7 +188,7 @@ __global__ __launch_bounds__(kThreads) void prefill_kernel(
   __shared__ float p_tile_s[kBc][kPsStride];  // [j][i]
 
   const int q_row0 = q_tile * kBr;
-  stage_dim_major<kBr>(q, q_row0, min(kBr, N - q_row0), &q_tile_s[0][0], tid);
+  stage_query(q, q_row0, min(kBr, N - q_row0), &q_tile_s[0][0], tid, scale);
 
   float acc[kRowsPerThread][kDimsPerThread];
   float m_i[kRowsPerThread];
@@ -174,13 +209,23 @@ __global__ __launch_bounds__(kThreads) void prefill_kernel(
   const int last_key = CAUSAL ? min(N, q_row0 + kBr) : N;
   const int n_kv_tiles = (last_key + kBc - 1) / kBc;
 
+  float4 k_raw[kStageIters];
+  float4 v_raw[kStageIters];
+  fetch_tile(k, 0, min(kBc, N), k_raw, tid);
+  fetch_tile(v, 0, min(kBc, N), v_raw, tid);
+
   for (int t = 0; t < n_kv_tiles; ++t) {
     const int k_row0 = t * kBc;
-    const int rows_valid = min(kBc, N - k_row0);
 
     __syncthreads();  // previous tile's PV has finished reading V/P
-    stage_dim_major<kBc>(k, k_row0, rows_valid, &k_tile_s[0][0], tid);
-    stage_row_major<kBc>(v, k_row0, rows_valid, &v_tile_s[0][0], tid);
+    store_dim_major(k_raw, &k_tile_s[0][0], tid);
+    store_row_major(v_raw, &v_tile_s[0][0], tid);
+    if (t + 1 < n_kv_tiles) {
+      const int next_row0 = k_row0 + kBc;
+      const int next_valid = min(kBc, N - next_row0);
+      fetch_tile(k, next_row0, next_valid, k_raw, tid);
+      fetch_tile(v, next_row0, next_valid, v_raw, tid);
+    }
     __syncthreads();
 
     // ---- S = Q K^T -----------------------------------------------------
@@ -219,14 +264,24 @@ __global__ __launch_bounds__(kThreads) void prefill_kernel(
       for (int c = 0; c < kColsPerThread; ++c) {
         const int k_idx = k_row0 + j0 + c;
         const bool keep = (k_idx < N) && (!CAUSAL || k_idx <= q_idx);
-        s[r][c] = keep ? s[r][c] * scale : -INFINITY;
+        s[r][c] = keep ? s[r][c] : -INFINITY;  // Q was pre-scaled at stage time
         row_max = fmaxf(row_max, s[r][c]);
       }
       row_max = row_reduce<true>(row_max);
 
+      // Rescaling the accumulator is only needed when this tile actually raises
+      // the running maximum; once the sequence is long enough that stops being
+      // the common case, and the branch is uniform across a row group.
       const float m_new = fmaxf(m_i[r], row_max);
-      const float rescale = __expf(m_i[r] - m_new);
-      m_i[r] = m_new;
+      if (m_new != m_i[r]) {
+        const float rescale = __expf(m_i[r] - m_new);
+        m_i[r] = m_new;
+        l_i[r] *= rescale;
+#pragma unroll
+        for (int d = 0; d < kDimsPerThread; ++d) {
+          acc[r][d] *= rescale;
+        }
+      }
 
       float row_sum = 0.f;
 #pragma unroll
@@ -234,13 +289,7 @@ __global__ __launch_bounds__(kThreads) void prefill_kernel(
         p[r][c] = __expf(s[r][c] - m_new);
         row_sum += p[r][c];
       }
-      row_sum = row_reduce<false>(row_sum);
-
-      l_i[r] = l_i[r] * rescale + row_sum;
-#pragma unroll
-      for (int d = 0; d < kDimsPerThread; ++d) {
-        acc[r][d] *= rescale;
-      }
+      l_i[r] += row_reduce<false>(row_sum);
     }
 
     // ---- O += P V --------------------------------------------------------
