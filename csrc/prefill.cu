@@ -168,7 +168,11 @@ __global__ __launch_bounds__(kThreads) void prefill_kernel(
     }
   }
 
-  const int n_kv_tiles = (N + kBc - 1) / kBc;
+  // Causal attention only needs key tiles that reach this block's diagonal;
+  // everything past it is fully masked, so it is skipped rather than computed
+  // and thrown away. The last query row in the block sets the bound.
+  const int last_key = CAUSAL ? min(N, q_row0 + kBr) : N;
+  const int n_kv_tiles = (last_key + kBc - 1) / kBc;
 
   for (int t = 0; t < n_kv_tiles; ++t) {
     const int k_row0 = t * kBc;
