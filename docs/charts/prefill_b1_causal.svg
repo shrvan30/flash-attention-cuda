@@ -4,15 +4,15 @@
 <line x1="78" y1="402.0" x2="530" y2="402.0" stroke="#e6e6e6" stroke-width="1"/>
 <text x="69" y="406.0" text-anchor="end" font-size="11" fill="#555555">0</text>
 <line x1="78" y1="330.8" x2="530" y2="330.8" stroke="#e6e6e6" stroke-width="1"/>
-<text x="69" y="334.8" text-anchor="end" font-size="11" fill="#555555">10.7</text>
+<text x="69" y="334.8" text-anchor="end" font-size="11" fill="#555555">10.4</text>
 <line x1="78" y1="259.6" x2="530" y2="259.6" stroke="#e6e6e6" stroke-width="1"/>
-<text x="69" y="263.6" text-anchor="end" font-size="11" fill="#555555">21.4</text>
+<text x="69" y="263.6" text-anchor="end" font-size="11" fill="#555555">20.9</text>
 <line x1="78" y1="188.4" x2="530" y2="188.4" stroke="#e6e6e6" stroke-width="1"/>
-<text x="69" y="192.4" text-anchor="end" font-size="11" fill="#555555">32</text>
+<text x="69" y="192.4" text-anchor="end" font-size="11" fill="#555555">31.3</text>
 <line x1="78" y1="117.2" x2="530" y2="117.2" stroke="#e6e6e6" stroke-width="1"/>
-<text x="69" y="121.2" text-anchor="end" font-size="11" fill="#555555">42.7</text>
+<text x="69" y="121.2" text-anchor="end" font-size="11" fill="#555555">41.7</text>
 <line x1="78" y1="46.0" x2="530" y2="46.0" stroke="#e6e6e6" stroke-width="1"/>
-<text x="69" y="50.0" text-anchor="end" font-size="11" fill="#555555">53.4</text>
+<text x="69" y="50.0" text-anchor="end" font-size="11" fill="#555555">52.2</text>
 <line x1="78.0" y1="402" x2="78.0" y2="407" stroke="#888888" stroke-width="1"/>
 <text x="78.0" y="422" text-anchor="middle" font-size="11" fill="#555555">128</text>
 <line x1="168.4" y1="402" x2="168.4" y2="407" stroke="#888888" stroke-width="1"/>
@@ -28,49 +28,49 @@
 <rect x="78" y="46" width="452" height="356" fill="none" stroke="#999999" stroke-width="1"/>
 <text x="304" y="444" text-anchor="middle" font-size="12" fill="#333333">sequence length N</text>
 <text x="18" y="224" text-anchor="middle" font-size="12" fill="#333333" transform="rotate(-90 18 224)">TFLOP/s</text>
-<path d="M78.0,392.3 L168.4,380.6 L258.8,371.1 L349.2,343.0 L439.6,328.5 L530.0,318.2" fill="none" stroke="#1f77b4" stroke-width="2.2"/>
-<circle cx="78.0" cy="392.3" r="3.1" fill="#1f77b4"/>
-<circle cx="168.4" cy="380.6" r="3.1" fill="#1f77b4"/>
-<circle cx="258.8" cy="371.1" r="3.1" fill="#1f77b4"/>
-<circle cx="349.2" cy="343.0" r="3.1" fill="#1f77b4"/>
-<circle cx="439.6" cy="328.5" r="3.1" fill="#1f77b4"/>
-<circle cx="530.0" cy="318.2" r="3.1" fill="#1f77b4"/>
+<path d="M78.0,392.0 L168.4,380.0 L258.8,370.4 L349.2,341.5 L439.6,327.6 L530.0,318.0" fill="none" stroke="#1f77b4" stroke-width="2.2"/>
+<circle cx="78.0" cy="392.0" r="3.1" fill="#1f77b4"/>
+<circle cx="168.4" cy="380.0" r="3.1" fill="#1f77b4"/>
+<circle cx="258.8" cy="370.4" r="3.1" fill="#1f77b4"/>
+<circle cx="349.2" cy="341.5" r="3.1" fill="#1f77b4"/>
+<circle cx="439.6" cy="327.6" r="3.1" fill="#1f77b4"/>
+<circle cx="530.0" cy="318.0" r="3.1" fill="#1f77b4"/>
 <line x1="544" y1="52" x2="572" y2="52" stroke="#1f77b4" stroke-width="2.2"/>
 <text x="578" y="56" font-size="11" fill="#333333">v2 prefill</text>
-<path d="M78.0,396.7 L168.4,380.5 L258.8,316.4 L349.2,271.8 L439.6,143.7 L530.0,90.5" fill="none" stroke="#2ca02c" stroke-width="2.2"/>
-<circle cx="78.0" cy="396.7" r="3.1" fill="#2ca02c"/>
-<circle cx="168.4" cy="380.5" r="3.1" fill="#2ca02c"/>
-<circle cx="258.8" cy="316.4" r="3.1" fill="#2ca02c"/>
-<circle cx="349.2" cy="271.8" r="3.1" fill="#2ca02c"/>
-<circle cx="439.6" cy="143.7" r="3.1" fill="#2ca02c"/>
-<circle cx="530.0" cy="90.5" r="3.1" fill="#2ca02c"/>
+<path d="M78.0,396.5 L168.4,380.0 L258.8,313.6 L349.2,268.5 L439.6,138.0 L530.0,86.4" fill="none" stroke="#2ca02c" stroke-width="2.2"/>
+<circle cx="78.0" cy="396.5" r="3.1" fill="#2ca02c"/>
+<circle cx="168.4" cy="380.0" r="3.1" fill="#2ca02c"/>
+<circle cx="258.8" cy="313.6" r="3.1" fill="#2ca02c"/>
+<circle cx="349.2" cy="268.5" r="3.1" fill="#2ca02c"/>
+<circle cx="439.6" cy="138.0" r="3.1" fill="#2ca02c"/>
+<circle cx="530.0" cy="86.4" r="3.1" fill="#2ca02c"/>
 <line x1="544" y1="73" x2="572" y2="73" stroke="#2ca02c" stroke-width="2.2"/>
 <text x="578" y="77" font-size="11" fill="#333333">torch SDPA (flash backend)</text>
-<path d="M78.0,399.3 L168.4,391.1 L258.8,360.1 L349.2,273.7 L439.6,147.4 L530.0,84.1" fill="none" stroke="#d62728" stroke-width="2.2"/>
-<circle cx="78.0" cy="399.3" r="3.1" fill="#d62728"/>
-<circle cx="168.4" cy="391.1" r="3.1" fill="#d62728"/>
-<circle cx="258.8" cy="360.1" r="3.1" fill="#d62728"/>
-<circle cx="349.2" cy="273.7" r="3.1" fill="#d62728"/>
-<circle cx="439.6" cy="147.4" r="3.1" fill="#d62728"/>
+<path d="M78.0,399.2 L168.4,390.7 L258.8,357.6 L349.2,270.7 L439.6,142.1 L530.0,84.1" fill="none" stroke="#d62728" stroke-width="2.2"/>
+<circle cx="78.0" cy="399.2" r="3.1" fill="#d62728"/>
+<circle cx="168.4" cy="390.7" r="3.1" fill="#d62728"/>
+<circle cx="258.8" cy="357.6" r="3.1" fill="#d62728"/>
+<circle cx="349.2" cy="270.7" r="3.1" fill="#d62728"/>
+<circle cx="439.6" cy="142.1" r="3.1" fill="#d62728"/>
 <circle cx="530.0" cy="84.1" r="3.1" fill="#d62728"/>
 <line x1="544" y1="94" x2="572" y2="94" stroke="#d62728" stroke-width="2.2"/>
 <text x="578" y="98" font-size="11" fill="#333333">flash-attn (official)</text>
-<path d="M78.0,401.9 L168.4,401.8 L258.8,401.6 L349.2,401.2 L439.6,400.3 L530.0,398.8" fill="none" stroke="#9467bd" stroke-width="2.2"/>
+<path d="M78.0,401.9 L168.4,401.8 L258.8,401.6 L349.2,401.1 L439.6,400.3 L530.0,398.8" fill="none" stroke="#9467bd" stroke-width="2.2"/>
 <circle cx="78.0" cy="401.9" r="3.1" fill="#9467bd"/>
 <circle cx="168.4" cy="401.8" r="3.1" fill="#9467bd"/>
 <circle cx="258.8" cy="401.6" r="3.1" fill="#9467bd"/>
-<circle cx="349.2" cy="401.2" r="3.1" fill="#9467bd"/>
+<circle cx="349.2" cy="401.1" r="3.1" fill="#9467bd"/>
 <circle cx="439.6" cy="400.3" r="3.1" fill="#9467bd"/>
 <circle cx="530.0" cy="398.8" r="3.1" fill="#9467bd"/>
 <line x1="544" y1="115" x2="572" y2="115" stroke="#9467bd" stroke-width="2.2"/>
 <text x="578" y="119" font-size="11" fill="#333333">v1 fused (fp32, 1 head)</text>
-<path d="M78.0,401.9 L168.4,401.8 L258.8,401.7 L349.2,401.3 L439.6,400.5 L530.0,399.3" fill="none" stroke="#8c564b" stroke-width="2.2"/>
+<path d="M78.0,401.9 L168.4,401.8 L258.8,401.7 L349.2,401.2 L439.6,400.5 L530.0,399.2" fill="none" stroke="#8c564b" stroke-width="2.2"/>
 <circle cx="78.0" cy="401.9" r="3.1" fill="#8c564b"/>
 <circle cx="168.4" cy="401.8" r="3.1" fill="#8c564b"/>
 <circle cx="258.8" cy="401.7" r="3.1" fill="#8c564b"/>
-<circle cx="349.2" cy="401.3" r="3.1" fill="#8c564b"/>
+<circle cx="349.2" cy="401.2" r="3.1" fill="#8c564b"/>
 <circle cx="439.6" cy="400.5" r="3.1" fill="#8c564b"/>
-<circle cx="530.0" cy="399.3" r="3.1" fill="#8c564b"/>
+<circle cx="530.0" cy="399.2" r="3.1" fill="#8c564b"/>
 <line x1="544" y1="136" x2="572" y2="136" stroke="#8c564b" stroke-width="2.2"/>
 <text x="578" y="140" font-size="11" fill="#333333">v1 tiled (fp32, 1 head)</text>
 </svg>

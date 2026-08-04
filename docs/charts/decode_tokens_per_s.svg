@@ -4,15 +4,15 @@
 <line x1="78" y1="402.0" x2="530" y2="402.0" stroke="#e6e6e6" stroke-width="1"/>
 <text x="69" y="406.0" text-anchor="end" font-size="11" fill="#555555">0</text>
 <line x1="78" y1="330.8" x2="530" y2="330.8" stroke="#e6e6e6" stroke-width="1"/>
-<text x="69" y="334.8" text-anchor="end" font-size="11" fill="#555555">1.84e+04</text>
+<text x="69" y="334.8" text-anchor="end" font-size="11" fill="#555555">1.83e+04</text>
 <line x1="78" y1="259.6" x2="530" y2="259.6" stroke="#e6e6e6" stroke-width="1"/>
-<text x="69" y="263.6" text-anchor="end" font-size="11" fill="#555555">3.68e+04</text>
+<text x="69" y="263.6" text-anchor="end" font-size="11" fill="#555555">3.67e+04</text>
 <line x1="78" y1="188.4" x2="530" y2="188.4" stroke="#e6e6e6" stroke-width="1"/>
-<text x="69" y="192.4" text-anchor="end" font-size="11" fill="#555555">5.51e+04</text>
+<text x="69" y="192.4" text-anchor="end" font-size="11" fill="#555555">5.5e+04</text>
 <line x1="78" y1="117.2" x2="530" y2="117.2" stroke="#e6e6e6" stroke-width="1"/>
-<text x="69" y="121.2" text-anchor="end" font-size="11" fill="#555555">7.35e+04</text>
+<text x="69" y="121.2" text-anchor="end" font-size="11" fill="#555555">7.33e+04</text>
 <line x1="78" y1="46.0" x2="530" y2="46.0" stroke="#e6e6e6" stroke-width="1"/>
-<text x="69" y="50.0" text-anchor="end" font-size="11" fill="#555555">9.19e+04</text>
+<text x="69" y="50.0" text-anchor="end" font-size="11" fill="#555555">9.17e+04</text>
 <line x1="78.0" y1="402" x2="78.0" y2="407" stroke="#888888" stroke-width="1"/>
 <text x="78.0" y="422" text-anchor="middle" font-size="11" fill="#555555">128</text>
 <line x1="191.0" y1="402" x2="191.0" y2="407" stroke="#888888" stroke-width="1"/>
@@ -26,20 +26,20 @@
 <rect x="78" y="46" width="452" height="356" fill="none" stroke="#999999" stroke-width="1"/>
 <text x="304" y="444" text-anchor="middle" font-size="12" fill="#333333">context length</text>
 <text x="18" y="224" text-anchor="middle" font-size="12" fill="#333333" transform="rotate(-90 18 224)">tokens/s</text>
-<path d="M78.0,84.1 L191.0,88.5 L304.0,85.8 L417.0,97.0 L530.0,217.5" fill="none" stroke="#1f77b4" stroke-width="2.2"/>
+<path d="M78.0,84.1 L191.0,88.5 L304.0,84.9 L417.0,97.7 L530.0,217.3" fill="none" stroke="#1f77b4" stroke-width="2.2"/>
 <circle cx="78.0" cy="84.1" r="3.1" fill="#1f77b4"/>
 <circle cx="191.0" cy="88.5" r="3.1" fill="#1f77b4"/>
-<circle cx="304.0" cy="85.8" r="3.1" fill="#1f77b4"/>
-<circle cx="417.0" cy="97.0" r="3.1" fill="#1f77b4"/>
-<circle cx="530.0" cy="217.5" r="3.1" fill="#1f77b4"/>
+<circle cx="304.0" cy="84.9" r="3.1" fill="#1f77b4"/>
+<circle cx="417.0" cy="97.7" r="3.1" fill="#1f77b4"/>
+<circle cx="530.0" cy="217.3" r="3.1" fill="#1f77b4"/>
 <line x1="544" y1="52" x2="572" y2="52" stroke="#1f77b4" stroke-width="2.2"/>
 <text x="578" y="56" font-size="11" fill="#333333">v2 decode</text>
-<path d="M78.0,131.8 L191.0,135.8 L304.0,196.1 L417.0,196.8 L530.0,219.9" fill="none" stroke="#2ca02c" stroke-width="2.2"/>
-<circle cx="78.0" cy="131.8" r="3.1" fill="#2ca02c"/>
-<circle cx="191.0" cy="135.8" r="3.1" fill="#2ca02c"/>
-<circle cx="304.0" cy="196.1" r="3.1" fill="#2ca02c"/>
-<circle cx="417.0" cy="196.8" r="3.1" fill="#2ca02c"/>
-<circle cx="530.0" cy="219.9" r="3.1" fill="#2ca02c"/>
+<path d="M78.0,136.1 L191.0,135.5 L304.0,202.0 L417.0,198.8 L530.0,219.6" fill="none" stroke="#2ca02c" stroke-width="2.2"/>
+<circle cx="78.0" cy="136.1" r="3.1" fill="#2ca02c"/>
+<circle cx="191.0" cy="135.5" r="3.1" fill="#2ca02c"/>
+<circle cx="304.0" cy="202.0" r="3.1" fill="#2ca02c"/>
+<circle cx="417.0" cy="198.8" r="3.1" fill="#2ca02c"/>
+<circle cx="530.0" cy="219.6" r="3.1" fill="#2ca02c"/>
 <line x1="544" y1="73" x2="572" y2="73" stroke="#2ca02c" stroke-width="2.2"/>
-<text x="578" y="77" font-size="11" fill="#333333">torch SDPA (decode reference)</text>
+<text x="578" y="77" font-size="11" fill="#333333">per-step eager SDPA loop</text>
 </svg>

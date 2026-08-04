@@ -52,10 +52,10 @@ the split study below addresses.
 
 | shape | ms | TFLOP/s | % of fp32 peak | GB/s | % of DRAM peak |
 | :-- | ---: | ---: | ---: | ---: | ---: |
-| B=4, H=12, N=2048, causal | 1.958 | 13.16 | 35.7% | 25.7 | 2.7% |
-| B=8, H=12, N=4096, causal | 14.939 | 13.80 | 37.5% | 13.5 | 1.4% |
+| B=4, H=12, N=2048, causal | 2.001 | 12.88 | 34.9% | 25.1 | 2.7% |
+| B=8, H=12, N=4096, causal | 14.960 | 13.78 | 37.4% | 13.5 | 1.4% |
 | B=8, H=12, N=4096, full | 29.003 | 14.22 | 38.6% | 6.9 | 0.7% |
-| B=1, H=12, N=1024, causal | 0.194 | 8.32 | 22.6% | 32.5 | 3.5% |
+| B=1, H=12, N=1024, causal | 0.193 | 8.33 | 22.6% | 32.5 | 3.5% |
 
 Prefill sits at a third of the fp32 compute peak and a few percent of the DRAM
 peak, so it is compute-side bound — but not by the FMA pipe itself. The QK loop
@@ -78,25 +78,41 @@ chunk does.
 
 | shape | Sk before | blocks | ms | GB/s | Sk after | blocks | ms | GB/s | speedup |
 | :-- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| B=1, H=12, S=512 | 512 | 12 | 0.0420 | 37.6 | 128 | 48 | 0.0130 | 123.2 | 3.24x |
-| B=1, H=12, S=1024 | 512 | 24 | 0.0421 | 75.0 | 128 | 96 | 0.0135 | 237.1 | 3.12x |
-| B=1, H=12, S=2048 | 512 | 48 | 0.0436 | 144.9 | 128 | 192 | 0.0194 | 330.3 | 2.25x |
+| B=1, H=12, S=512 | 512 | 12 | 0.0424 | 37.2 | 128 | 48 | 0.0131 | 121.6 | 3.23x |
+| B=1, H=12, S=1024 | 512 | 24 | 0.0426 | 74.2 | 128 | 96 | 0.0137 | 233.5 | 3.11x |
+| B=1, H=12, S=2048 | 512 | 48 | 0.0441 | 143.1 | 128 | 192 | 0.0196 | 326.9 | 2.26x |
 
 ### Adaptive decode across shapes
 
 | shape | chunk | blocks | ms | GB/s | % of DRAM peak | TFLOP/s | % of fp32 peak |
 | :-- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| B=1, H=12, S=512 | 128 | 48 | 0.0130 | 123.2 | 13.2% | 0.121 | 0.33% |
-| B=1, H=12, S=1024 | 128 | 96 | 0.0135 | 237.1 | 25.3% | 0.233 | 0.63% |
-| B=1, H=12, S=2048 | 128 | 192 | 0.0194 | 329.2 | 35.2% | 0.324 | 0.88% |
-| B=1, H=12, S=4096 | 256 | 192 | 0.0401 | 316.5 | 33.8% | 0.314 | 0.85% |
-| B=8, H=12, S=2048 | 1024 | 192 | 0.1364 | 369.7 | 39.5% | 0.369 | 1.00% |
+| B=1, H=12, S=512 | 128 | 48 | 0.0131 | 121.6 | 13.0% | 0.120 | 0.32% |
+| B=1, H=12, S=1024 | 128 | 96 | 0.0137 | 233.0 | 24.9% | 0.229 | 0.62% |
+| B=1, H=12, S=2048 | 128 | 192 | 0.0196 | 326.9 | 34.9% | 0.322 | 0.87% |
+| B=1, H=12, S=4096 | 256 | 192 | 0.0397 | 319.5 | 34.1% | 0.317 | 0.86% |
+| B=8, H=12, S=2048 | 1024 | 192 | 0.1371 | 367.8 | 39.3% | 0.367 | 1.00% |
 
 Decode does two FLOPs per byte of cache read, so it is a bandwidth problem with no
 arithmetic to hide behind — the compute column is there to show how far from
 compute-bound it is. What limits it at small batch is neither bandwidth nor the
 access pattern (one warp reads one cached row as a single 128-byte coalesced
 request) but the number of blocks in flight.
+
+### What the decode comparison baseline is, and is not
+
+The decode line in [../benchmarks.md](../benchmarks.md) is measured against a
+**per-step eager SDPA loop**: one `scaled_dot_product_attention` call per decoded
+token, over the whole cache, with a single-row query. That is the obvious way to
+decode in PyTorch and it is a correct reference, but it is not a decode-optimised
+kernel — it does not split the KV dimension, so it leaves unused exactly the
+parallelism that the fixed-chunk version of this kernel used to leave unused. Beating
+it is a low bar and should be read as such.
+
+The serious baselines are **flash-attn's dedicated decode path**
+(`flash_attn_with_kvcache`) and **FlashDecoding**, both of which split the KV
+dimension the way this kernel does and additionally run the arithmetic on tensor
+cores. Benchmarking against those is deferred; until it happens, no claim is made
+here about how this kernel compares to a state-of-the-art decode implementation.
 
 ## Timeline observations (nsys)
 

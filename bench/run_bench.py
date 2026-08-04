@@ -177,9 +177,17 @@ def prefill_lines(batch, heads, seqs, causal, legacy_seqs):
     return results
 
 
+DECODE_BASELINE = "per-step eager SDPA loop"
+
+
 def decode_lines(batch, heads, contexts):
-    """Single-sequence decode: tokens/s for our kernel vs an SDPA reference."""
-    results = {"v2 decode": {}, "torch SDPA (decode reference)": {}}
+    """Single-sequence decode: tokens/s for our kernel vs an SDPA reference.
+
+    The baseline is one `scaled_dot_product_attention` call per decoded token
+    over the whole cache — a correctness-preserving reference, not a tuned
+    decode kernel. See the caveat written into the report.
+    """
+    results = {"v2 decode": {}, DECODE_BASELINE: {}}
 
     for ctx in contexts:
         q = torch.randn(batch, heads, 1, HEAD_DIM, device="cuda", dtype=torch.float16)
@@ -197,7 +205,7 @@ def decode_lines(batch, heads, contexts):
                 q, k_cache, v_cache, is_causal=False, scale=SCALE
             )
         )
-        results["torch SDPA (decode reference)"][ctx] = (ms, batch * 1000.0 / ms)
+        results[DECODE_BASELINE][ctx] = (ms, batch * 1000.0 / ms)
 
     return results
 
@@ -213,7 +221,7 @@ CHART_COLOURS = {
     "v1 fused (fp32, 1 head)": "#9467bd",
     "v1 tiled (fp32, 1 head)": "#8c564b",
     "v2 decode": "#1f77b4",
-    "torch SDPA (decode reference)": "#2ca02c",
+    "per-step eager SDPA loop": "#2ca02c",
 }
 
 
@@ -440,6 +448,18 @@ def main():
     report.append("")
     report.append(
         "Tokens/s is one decoded token per sequence per call, i.e. `batch / latency`."
+    )
+    report.append("")
+    report.append(
+        "**What the baseline is.** The comparison line is a **per-step eager SDPA loop**: one "
+        "`scaled_dot_product_attention` call per decoded token, over the whole cache, with a "
+        "single-row query. It is a correctness-preserving reference, not a tuned decode "
+        "kernel — it does not split the KV dimension, so it leaves on the table exactly the "
+        "parallelism that the fixed-chunk version of our own kernel used to leave. The serious "
+        "baselines are flash-attn's dedicated decode path (`flash_attn_with_kvcache`) and "
+        "FlashDecoding, both of which do split KV; measuring against those is deferred. Read "
+        "the numbers below as \"faster than the obvious PyTorch way to decode\", not as a claim "
+        "about state-of-the-art decode kernels."
     )
     report.append("")
     report.append(decode_table(decode, contexts))

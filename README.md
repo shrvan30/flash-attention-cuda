@@ -22,14 +22,22 @@ flash-attn 2.8.3.post1. Prefill, **B=8, H=12, causal**, median of three runs of 
 | 2048 | 3.88 ms · 13.28 TFLOP/s | 0.92 ms · 55.80 | 0.95 ms · 54.21 | 424.0 ms · 0.24 |
 | 4096 | 14.97 ms · 13.77 TFLOP/s | 3.37 ms · 61.20 | 3.49 ms · 59.15 | 888.2 ms · 0.46 |
 
-Decode, single sequence, H=12, one token per call:
+Decode, single sequence, H=12, one token per call, against a **per-step eager SDPA loop**
+(one `scaled_dot_product_attention` call per token over the whole cache):
 
-| context | v2 decode | torch SDPA reference |
+| context | v2 decode | per-step eager SDPA loop |
 | ---: | ---: | ---: |
 | 128 | 0.0122 ms · 82,064 tok/s | 0.0143 ms · 69,754 tok/s |
 | 512 | 0.0122 ms · 81,642 tok/s | 0.0188 ms · 53,170 tok/s |
 | 1024 | 0.0127 ms · 78,755 tok/s | 0.0189 ms · 52,978 tok/s |
 | 2048 | 0.0210 ms · 47,637 tok/s | 0.0213 ms · 47,011 tok/s |
+
+That baseline is a correct reference, not a tuned decode kernel: it does not split the KV
+dimension, so it leaves unused exactly the parallelism this kernel exploits. The serious
+baselines are flash-attn's dedicated decode path (`flash_attn_with_kvcache`) and FlashDecoding,
+which do split KV and run on tensor cores. Measuring against those is deferred, so read the
+decode numbers as "faster than the obvious PyTorch way to decode" and not as a claim about
+state-of-the-art decode kernels.
 
 ![Prefill throughput, B=8, causal](docs/charts/prefill_b8_causal.svg)
 
