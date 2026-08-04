@@ -6,11 +6,14 @@
 import torch as _torch  # noqa: F401
 
 from ._C import (  # noqa: F401
+    _decode_with_split,
+    choose_decode_split,
     decode,
     head_dim,
     legacy_fused,
     legacy_naive,
     legacy_tiled,
+    occupancy_report,
     prefill,
 )
 
@@ -18,6 +21,8 @@ __all__ = [
     "prefill",
     "decode",
     "head_dim",
+    "occupancy_report",
+    "choose_decode_split",
     "legacy_naive",
     "legacy_tiled",
     "legacy_fused",

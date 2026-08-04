@@ -152,6 +152,52 @@ def test_decode_cache_lengths(cache):
     assert max_abs_diff(out, ref) <= TOL
 
 
+@pytest.mark.gpu
+@requires_gpu
+@pytest.mark.parametrize("cache", [512, 1024, 2048])
+def test_decode_is_invariant_to_split_size(cache):
+    """The split-K chunk size is a scheduling choice, not a numerical one."""
+    batch, heads = 2, 12
+    q = rand(batch, heads, 1, HEAD_DIM, seed=7)
+    k_cache = rand(batch, heads, cache, HEAD_DIM)
+    v_cache = rand(batch, heads, cache, HEAD_DIM)
+    lens = torch.tensor([cache, cache // 2 + 1], dtype=torch.int32, device="cuda")
+
+    chosen = flashattn_cuda.decode(q, k_cache, v_cache, lens, SCALE)
+    ref = decode_reference(q, k_cache, v_cache, lens)
+    assert max_abs_diff(chosen, ref) <= TOL
+
+    for split in (128, 256, 512, 1024):
+        forced = flashattn_cuda._decode_with_split(
+            q, k_cache, v_cache, lens, SCALE, split
+        )
+        assert max_abs_diff(forced, ref) <= TOL
+        # Different chunkings reassociate the same sums, so require agreement at
+        # the fp16 output level rather than bit-identity.
+        assert max_abs_diff(forced, chosen) <= 1e-3
+
+
+@pytest.mark.gpu
+@requires_gpu
+def test_decode_split_choice_targets_the_device():
+    """The chosen chunk should fill the GPU when the shape allows it."""
+    sms = torch.cuda.get_device_properties(0).multi_processor_count
+    target = 2 * sms
+
+    for batch, heads, seq in [(1, 12, 2048), (8, 12, 2048), (4, 12, 1024)]:
+        split = flashattn_cuda.choose_decode_split(seq, batch, heads, target)
+        assert split in (128, 256, 512, 1024)
+        blocks = batch * heads * -(-seq // split)
+        assert blocks >= target
+        # and it should be the largest such chunk: doubling it must fall short
+        if split < 1024:
+            bigger = batch * heads * -(-seq // (split * 2))
+            assert bigger < target
+
+    # Shapes too small to reach the target fall back to the finest split.
+    assert flashattn_cuda.choose_decode_split(512, 1, 12, target) == 128
+
+
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------

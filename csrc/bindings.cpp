@@ -33,9 +33,9 @@ at::Tensor prefill(const at::Tensor &q, const at::Tensor &k,
 //   seq_lens      : (B,) int32 CUDA; sequence b attends rows [0, seq_lens[b])
 //   returns o     : (B, H, 1, 64) fp16
 // ---------------------------------------------------------------------------
-at::Tensor decode(const at::Tensor &q, const at::Tensor &k_cache,
-                  const at::Tensor &v_cache, const at::Tensor &seq_lens,
-                  double scale) {
+at::Tensor decode_impl(const at::Tensor &q, const at::Tensor &k_cache,
+                       const at::Tensor &v_cache, const at::Tensor &seq_lens,
+                       double scale, int64_t split_size) {
   fa_check_bhnd(q, "q");
   fa_check_bhnd(k_cache, "k_cache");
   fa_check_bhnd(v_cache, "v_cache");
@@ -63,8 +63,36 @@ at::Tensor decode(const at::Tensor &q, const at::Tensor &k_cache,
   TORCH_CHECK(std::isfinite(scale), "scale must be finite");
 
   at::Tensor o = at::empty_like(q);
-  launch_decode(q, k_cache, v_cache, seq_lens, o, static_cast<float>(scale));
+  launch_decode(q, k_cache, v_cache, seq_lens, o, static_cast<float>(scale),
+                static_cast<int>(split_size));
   return o;
+}
+
+at::Tensor decode(const at::Tensor &q, const at::Tensor &k_cache,
+                  const at::Tensor &v_cache, const at::Tensor &seq_lens,
+                  double scale) {
+  return decode_impl(q, k_cache, v_cache, seq_lens, scale, 0);
+}
+
+// Theoretical occupancy of every kernel at its real launch configuration,
+// straight from the occupancy API rather than from a hand-rolled model.
+py::list occupancy_report() {
+  std::vector<OccupancyEntry> entries;
+  prefill_occupancy(entries);
+  decode_occupancy(entries);
+
+  py::list rows;
+  for (const auto &e : entries) {
+    py::dict row;
+    row["kernel"] = e.name;
+    row["threads_per_block"] = e.threads_per_block;
+    row["registers_per_thread"] = e.registers_per_thread;
+    row["shared_bytes_per_block"] = e.shared_bytes_per_block;
+    row["max_active_blocks_per_sm"] = e.max_active_blocks_per_sm;
+    row["theoretical_occupancy"] = e.theoretical_occupancy;
+    rows.append(row);
+  }
+  return rows;
 }
 
 // ---------------------------------------------------------------------------
@@ -88,6 +116,16 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("decode", &decode, "Single-query attention against a KV cache",
         py::arg("q"), py::arg("k_cache"), py::arg("v_cache"),
         py::arg("seq_lens"), py::arg("scale"));
+  m.def("occupancy_report", &occupancy_report,
+        "Theoretical occupancy of each kernel at its launch configuration");
+  m.def("choose_decode_split", &choose_decode_split,
+        "Chunk size decode would pick for this shape and block target",
+        py::arg("max_seq"), py::arg("batch"), py::arg("heads"),
+        py::arg("min_blocks"));
+  // Benchmark hook: forces the split-K chunk size instead of choosing it.
+  m.def("_decode_with_split", &decode_impl, py::arg("q"), py::arg("k_cache"),
+        py::arg("v_cache"), py::arg("seq_lens"), py::arg("scale"),
+        py::arg("split_size"));
 
   m.def("legacy_naive", &legacy_naive, "v1 naive kernel (N, 64) fp32");
   m.def("legacy_tiled", &legacy_tiled, "v1 tiled kernel (N, 64) fp32");

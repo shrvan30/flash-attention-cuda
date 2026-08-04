@@ -367,3 +367,24 @@ void launch_prefill(const at::Tensor &q, const at::Tensor &k,
   }
   C10_CUDA_KERNEL_LAUNCH_CHECK();
 }
+
+void prefill_occupancy(std::vector<OccupancyEntry> &out) {
+  const auto *props = at::cuda::getCurrentDeviceProperties();
+
+  auto record = [&](const char *name, const void *func) {
+    cudaFuncAttributes attr{};
+    C10_CUDA_CHECK(cudaFuncGetAttributes(&attr, func));
+    int blocks = 0;
+    C10_CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &blocks, func, kThreads, 0));
+    out.push_back({name, kThreads, attr.numRegs,
+                   static_cast<int>(attr.sharedSizeBytes), blocks,
+                   static_cast<double>(blocks) * kThreads /
+                       props->maxThreadsPerMultiProcessor});
+  };
+
+  record("prefill_kernel<causal=true>",
+         reinterpret_cast<const void *>(prefill_kernel<true>));
+  record("prefill_kernel<causal=false>",
+         reinterpret_cast<const void *>(prefill_kernel<false>));
+}

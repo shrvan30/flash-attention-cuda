@@ -30,7 +30,9 @@ constexpr int kDimsPerLane = 2;  // one __half2 per lane covers head_dim=64
 
 static_assert(kHeadDim == 64, "the v2 kernels are specialised for head_dim=64");
 static_assert(kHeadDim == 32 * kDimsPerLane, "one warp must cover head_dim");
-static_assert(kDecodeSplit % kWarps == 0, "warps split the chunk evenly");
+static_assert(kDecodeSplitMin % kWarps == 0, "warps split the chunk evenly");
+static_assert(kDecodeSplitMin > 0 && kDecodeSplitMax >= kDecodeSplitMin,
+              "split bounds must be a non-empty range");
 
 __device__ __forceinline__ float warp_sum(float x) {
 #pragma unroll
@@ -47,7 +49,7 @@ __global__ __launch_bounds__(kThreads) void decode_split_kernel(
     const __half *__restrict__ q, const __half *__restrict__ k_cache,
     const __half *__restrict__ v_cache, const int *__restrict__ seq_lens,
     float *__restrict__ partial_acc, float *__restrict__ partial_ml,
-    int max_seq, int n_splits, float scale) {
+    int max_seq, int n_splits, int split_size, float scale) {
   const int split = blockIdx.x;
   const int head = blockIdx.y;
   const int batch = blockIdx.z;
@@ -64,8 +66,8 @@ __global__ __launch_bounds__(kThreads) void decode_split_kernel(
       ((static_cast<size_t>(batch) * n_heads + head) * n_splits + split);
 
   const int seq_len = min(seq_lens[batch], max_seq);
-  const int chunk_begin = split * kDecodeSplit;
-  const int chunk_end = min(seq_len, chunk_begin + kDecodeSplit);
+  const int chunk_begin = split * split_size;
+  const int chunk_end = min(seq_len, chunk_begin + split_size);
 
   __shared__ float s_acc[kWarps][kHeadDim];
   __shared__ float s_m[kWarps];
@@ -174,13 +176,41 @@ __global__ __launch_bounds__(kHeadDim) void decode_merge_kernel(
 
 }  // namespace
 
+// A decode launch has only batch*heads*splits blocks, so the chunk size is what
+// decides whether the GPU is filled. Pick the largest chunk that still reaches
+// the block target: bigger chunks mean fewer partials for the merge pass, and
+// the parallelism target is a floor, not something worth overshooting.
+int choose_decode_split(int max_seq, int batch, int heads, int min_blocks) {
+  const int64_t per_split = static_cast<int64_t>(batch) * heads;
+  for (int split = kDecodeSplitMax; split > kDecodeSplitMin; split >>= 1) {
+    const int64_t splits = (max_seq + split - 1) / split;
+    if (per_split * splits >= min_blocks) {
+      return split;
+    }
+  }
+  return kDecodeSplitMin;
+}
+
 void launch_decode(const at::Tensor &q, const at::Tensor &k_cache,
                    const at::Tensor &v_cache, const at::Tensor &seq_lens,
-                   at::Tensor &o, float scale) {
+                   at::Tensor &o, float scale, int split_size) {
   const int batch = static_cast<int>(q.size(0));
   const int heads = static_cast<int>(q.size(1));
   const int max_seq = static_cast<int>(k_cache.size(2));
-  const int n_splits = (max_seq + kDecodeSplit - 1) / kDecodeSplit;
+
+  if (split_size <= 0) {
+    // Two blocks per SM: enough to keep every SM fed and to overlap one block's
+    // memory latency with another's, without splitting so finely that the merge
+    // pass and the workspace traffic start to dominate.
+    const int min_blocks =
+        2 * at::cuda::getCurrentDeviceProperties()->multiProcessorCount;
+    split_size = choose_decode_split(max_seq, batch, heads, min_blocks);
+  }
+  TORCH_CHECK(split_size % (kDecodeThreads / 32) == 0,
+              "decode split size must be a multiple of the warp count, got ",
+              split_size);
+
+  const int n_splits = (max_seq + split_size - 1) / split_size;
 
   const auto workspace_opts = q.options().dtype(at::kFloat);
   at::Tensor partial_acc =
@@ -198,11 +228,32 @@ void launch_decode(const at::Tensor &q, const at::Tensor &k_cache,
   decode_split_kernel<<<dim3(n_splits, heads, batch), kThreads, 0, stream>>>(
       q_ptr, k_ptr, v_ptr, seq_lens.const_data_ptr<int>(),
       partial_acc.data_ptr<float>(), partial_ml.data_ptr<float>(), max_seq,
-      n_splits, scale);
+      n_splits, split_size, scale);
   C10_CUDA_KERNEL_LAUNCH_CHECK();
 
   decode_merge_kernel<<<dim3(heads, batch), kHeadDim, 0, stream>>>(
       partial_acc.const_data_ptr<float>(), partial_ml.const_data_ptr<float>(),
       o_ptr, n_splits);
   C10_CUDA_KERNEL_LAUNCH_CHECK();
+}
+
+void decode_occupancy(std::vector<OccupancyEntry> &out) {
+  const auto *props = at::cuda::getCurrentDeviceProperties();
+
+  auto record = [&](const char *name, const void *func, int threads) {
+    cudaFuncAttributes attr{};
+    C10_CUDA_CHECK(cudaFuncGetAttributes(&attr, func));
+    int blocks = 0;
+    C10_CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks, func,
+                                                                 threads, 0));
+    out.push_back({name, threads, attr.numRegs,
+                   static_cast<int>(attr.sharedSizeBytes), blocks,
+                   static_cast<double>(blocks) * threads /
+                       props->maxThreadsPerMultiProcessor});
+  };
+
+  record("decode_split_kernel", reinterpret_cast<const void *>(decode_split_kernel),
+         kDecodeThreads);
+  record("decode_merge_kernel", reinterpret_cast<const void *>(decode_merge_kernel),
+         kHeadDim);
 }
