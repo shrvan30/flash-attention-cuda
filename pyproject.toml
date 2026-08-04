@@ -1,0 +1,4 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "_build_backend"
+backend-path = ["."]
