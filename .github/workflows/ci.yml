@@ -48,11 +48,20 @@ jobs:
           apt-get install -y --no-install-recommends python3 python3-pip python3-dev git
           python3 -m pip install --upgrade pip
 
-      # CPU torch is enough: nvcc compiles the .cu sources against the CUDA
-      # headers from the image, and the extension links against libtorch, which
-      # the CPU wheel provides. Nothing here is executed.
-      - name: Install CPU torch
-        run: pip3 install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Free disk space
+        run: |
+          df -h /
+          rm -rf /opt/hostedtoolcache /usr/share/dotnet /usr/local/lib/android 2>/dev/null || true
+          df -h /
+
+      # A CUDA-enabled torch, not the CPU wheel. The CPU wheel omits
+      # c10/cuda/impl/cuda_cmake_macros.h, a header generated only for CUDA
+      # builds, so csrc/ cannot even reach the compiler against it — and it ships
+      # no libtorch_cuda to link. None of that needs a *device*: compiling and
+      # linking a CUDA extension requires the toolkit and the libraries, never a
+      # GPU, which is what this job proves.
+      - name: Install torch with CUDA support
+        run: pip3 install torch --index-url https://download.pytorch.org/whl/cu128
 
       - name: Build the extension
         env:
