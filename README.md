@@ -15,24 +15,34 @@ o = flashattn_cuda.decode(q, k_cache, v_cache, seq_lens, scale=1/8)
 
 ## Numbers
 
-RTX 3090 (sm_86, 82 SMs), driver 595.71.05, CUDA 13.2, PyTorch 2.13.0+cu130,
-flash-attn 2.8.3.post1. Prefill, **B=8, H=12, causal**, median of three runs of 30 launches:
+Every number in this README, in [docs/benchmarks.md](docs/benchmarks.md) and in
+[docs/profiles/analysis.md](docs/profiles/analysis.md) was measured on **one machine**:
+RTX 3090 (sm_86, 82 SMs), driver 580.126.09, CUDA 13.0, PyTorch 2.11.0+cu130,
+flash-attn 2.8.3. Nothing is carried over from an earlier environment.
+
+Prefill, **B=8, H=12, causal**, median of three runs of 30 launches:
 
 | N | v2 prefill | torch SDPA (flash) | flash-attn 2.8.3 | v1 fused (scaled to B·H) |
 | ---: | ---: | ---: | ---: | ---: |
-| 1024 | 1.04 ms · 12.36 TFLOP/s | 0.28 ms · 45.96 | 0.28 ms · 45.98 | 217.8 ms · 0.12 |
-| 2048 | 3.88 ms · 13.28 TFLOP/s | 0.92 ms · 55.80 | 0.95 ms · 54.21 | 424.0 ms · 0.24 |
-| 4096 | 14.97 ms · 13.77 TFLOP/s | 3.37 ms · 61.20 | 3.49 ms · 59.15 | 888.2 ms · 0.46 |
+| 1024 | 1.238 ms · 10.40 TFLOP/s | 0.345 ms · 37.33 | 0.424 ms · 30.42 | 238.3 ms · 0.11 |
+| 2048 | 4.575 ms · 11.26 TFLOP/s | 1.154 ms · 44.66 | 1.305 ms · 39.49 | 438.1 ms · 0.24 |
+| 4096 | 17.644 ms · 11.68 TFLOP/s | 4.230 ms · 48.74 | 4.805 ms · 42.90 | 1092.4 ms · 0.38 |
 
 Decode, single sequence, H=12, one token per call, against a **per-step eager SDPA loop**
 (one `scaled_dot_product_attention` call per token over the whole cache):
 
 | context | v2 decode | per-step eager SDPA loop |
 | ---: | ---: | ---: |
-| 128 | 0.0122 ms · 82,064 tok/s | 0.0143 ms · 69,754 tok/s |
-| 512 | 0.0122 ms · 81,642 tok/s | 0.0188 ms · 53,170 tok/s |
-| 1024 | 0.0127 ms · 78,755 tok/s | 0.0189 ms · 52,978 tok/s |
-| 2048 | 0.0210 ms · 47,637 tok/s | 0.0213 ms · 47,011 tok/s |
+| 128 | 0.0169 ms · 59,305 tok/s | 0.0222 ms · 45,003 tok/s |
+| 512 | 0.0170 ms · 58,947 tok/s | 0.0303 ms · 32,992 tok/s |
+| 1024 | 0.0173 ms · 57,899 tok/s | 0.0300 ms · 33,368 tok/s |
+| 2048 | 0.0314 ms · 31,844 tok/s | 0.0302 ms · 33,066 tok/s |
+
+Note the last row: **at context 2048 the eager loop is marginally faster** (0.0302 ms against
+0.0314). The split kernel's advantage comes from the parallelism it extracts at small context,
+where a single-row query otherwise leaves the card almost idle; by 2048 the eager loop has
+enough work to fill the machine on its own and the split kernel's merge pass stops paying for
+itself. That crossover is real and is left in rather than trimmed to a flattering range.
 
 That baseline is a correct reference, not a tuned decode kernel: it does not split the KV
 dimension, so it leaves unused exactly the parallelism this kernel exploits. The serious
@@ -45,45 +55,56 @@ state-of-the-art decode kernels.
 
 ### The honest gap
 
-**v2 prefill is about 4.4x slower than flash-attn**, and 59x faster than the v1 kernels it
-replaces at N=4096 (208x at N=1024, where v1's lack of batching hurts most). Two shapes go the
-other way: at N=128 v2 is 2–4x *faster* than either library
-(0.017 ms vs 0.036 / 0.061 ms at B=1), because at that size both are dominated by fixed launch
-overhead that a simpler kernel does not pay. `torch.sdpa`'s flash backend and the `flash-attn`
-package track each other closely, as expected — SDPA dispatches to the same FlashAttention-2
-kernels.
+**v2 prefill is 2.9–3.7x slower than flash-attn** across N=1024–4096 at B=8 causal (4.2x
+against `torch.sdpa`'s flash backend at N=4096), and **62x faster** than the v1 kernels it
+replaces at N=4096 — 192x at N=1024, where v1's lack of batching hurts most. Small shapes go
+the other way: at B=1, N=128, v2 takes 0.019 ms against SDPA's 0.056 and flash-attn's 0.095,
+because at that size both libraries are dominated by fixed launch overhead that a simpler
+kernel does not pay. `torch.sdpa`'s flash backend and the `flash-attn` package track each
+other closely, as expected — SDPA dispatches to the same FlashAttention-2 kernels.
 
-The gap is not a tuning gap, and the analysis says where it comes from. v2 sustains 13.8–14.2
-TFLOP/s, which is **38% of this card's 36.8 TFLOP/s fp32 FMA peak** — a respectable fraction of
-the machine this kernel is using. The problem is which machine it uses: every multiply happens
-on the CUDA cores, and the operands arrive through shared memory at roughly 1.75 bytes per FMA,
-while an SM sustains 1.0 byte per FMA. That caps this design near 57% of fp32 peak before any
-other overhead. flash-attn is not winning by being 4x better at the same game — it runs the
-matmuls on the tensor cores, whose fp16 peak is about 2x the fp32 pipe and which take their
-operands from registers via `ldmatrix`/`mma` instead of the shared-memory path that limits us.
+The gap is not a tuning gap. v2 sustains 10.4–11.7 TFLOP/s, which is **29–32% of this card's
+36.2 TFLOP/s fp32 FMA peak** — a respectable fraction of the machine this kernel is using. The
+problem is *which* machine it uses: every multiply happens on the CUDA cores, and the operands
+arrive through shared memory at roughly 1.75 bytes per FMA while an SM sustains about 1.0. On
+that model the design caps near 57% of fp32 peak before staging, softmax bookkeeping and
+barriers are paid for. flash-attn is not winning by being 3x better at the same game — it runs
+the matmuls on the tensor cores, whose fp16 peak is about 2x the fp32 pipe and which take
+their operands from registers via `ldmatrix`/`mma` instead of the shared-memory path that
+limits this kernel.
 
-Confirming *which* unit is saturated needs hardware performance counters, which the development
-box does not expose; that measurement is deferred to a counter-capable card
-([bench/profile_ncu.sh](bench/profile_ncu.sh)). Everything claimed above comes from CUDA-event
-timings and the occupancy API — see [docs/profiles/analysis.md](docs/profiles/analysis.md).
+**What is measured and what is modeled.** The times above are measured, by a clock. The
+TFLOP/s, GB/s and "% of peak" figures are *derived* from those times and the analytic FLOP and
+byte counts — they assume the kernel moves exactly the bytes the model says. The
+shared-memory-limited explanation of the gap is likewise a **model**: confirming which unit
+actually saturates needs hardware performance counters, and the machine these numbers come
+from denies access to them (`ERR_NVGPUCTRPERM` — it is a container, and the restriction is a
+per-host driver property that cannot be lifted from inside).
+
+**Counter-validated profiles are therefore pending**, tracked as open work against a
+documentation-only `v2.0.1` cut at the `v2.0.0` commit — see
+[docs/profiles/summary.md](docs/profiles/summary.md) for what will be captured and how. Until
+then, treat every claim here about which hardware unit is saturated as a model that has not
+been counter-validated. The reproducible split is set out in
+[docs/profiles/analysis.md](docs/profiles/analysis.md).
 
 So closing the gap means writing a WMMA/MMA kernel, not shaving instructions off this one. That
 is deliberately out of scope for v2.0.0 and is the next planned step.
 
 **Decode picks its split size per launch.** A decode call has only `batch x heads x splits`
 blocks, so the split-K chunk decides whether the GPU is filled at all: with the chunk fixed at
-512 keys, one sequence at context 1024 launched 24 blocks on an 82-SM card and reached 8.9% of
-peak bandwidth, with an access pattern that was already one fully coalesced 128-byte request per
-cached row. `decode` now chooses the largest power-of-two chunk in [128, 1024] for which
-`batch · heads · ceil(S/chunk)` reaches two blocks per SM, falling back to the finest split when
-no chunk can — largest-that-fits rather than finest-available, so the merge pass stays cheap.
-At B=1, H=12 that is worth **2.2–3.2x**:
+512 keys, one sequence at context 1024 launched 24 blocks on an 82-SM card, with an access
+pattern that was already one fully coalesced 128-byte request per cached row. `decode` now
+chooses the largest power-of-two chunk in [128, 1024] for which `batch · heads · ceil(S/chunk)`
+reaches two blocks per SM, falling back to the finest split when no chunk can —
+largest-that-fits rather than finest-available, so the merge pass stays cheap. At B=1, H=12
+that is worth **2.9–3.0x**:
 
 | S | fixed Sk=512 | adaptive | speedup |
 | ---: | ---: | ---: | ---: |
-| 512 | 0.0420 ms · 37.6 GB/s | 0.0130 ms · 123.2 GB/s | 3.24x |
-| 1024 | 0.0421 ms · 75.0 GB/s | 0.0135 ms · 237.1 GB/s | 3.12x |
-| 2048 | 0.0436 ms · 144.9 GB/s | 0.0194 ms · 330.3 GB/s | 2.25x |
+| 512 | 0.0514 ms · 30.7 GB/s | 0.0175 ms · 91.5 GB/s | 2.94x |
+| 1024 | 0.0517 ms · 61.1 GB/s | 0.0175 ms · 182.5 GB/s | 2.95x |
+| 2048 | 0.0909 ms · 69.5 GB/s | 0.0302 ms · 211.6 GB/s | 3.01x |
 
 The chunk size is a scheduling choice, not a numerical one — the log-sum-exp merge makes the
 result independent of it, and the suite asserts that across every chunk in the range. Full
@@ -99,7 +120,7 @@ analysis in [docs/profiles/analysis.md](docs/profiles/analysis.md).
 | causal | key tiles above the diagonal are skipped, not masked |
 | decode | split-K over the cached keys, log-sum-exp merge of the partials |
 | ragged batches | `seq_lens` is per-sequence; chunks past a sequence's end drop out |
-| verification | 86 tests against an fp32 SDPA reference, tolerance 2e-3 |
+| verification | 90 GPU tests against an fp32 SDPA reference, tolerance 2e-3 |
 
 `head_dim = 64` is a static assertion, not a runtime check: the tile shapes, register blocking
 and vectorised loads are all resolved at compile time from it.
@@ -128,7 +149,7 @@ The extension links against the PyTorch already installed in the environment —
 
 ```bash
 pip install pytest
-python -m pytest -m gpu           # 86 GPU tests
+python -m pytest -m gpu           # 90 GPU tests
 ```
 
 The suite compares against `scaled_dot_product_attention` computed in fp32 on upcast inputs, so

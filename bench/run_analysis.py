@@ -8,6 +8,7 @@ bench/profile_ncu.sh on a counter-capable card.
     python bench/run_analysis.py
 """
 
+import csv
 import math
 import os
 import subprocess
@@ -138,6 +139,148 @@ def decode_roofline(props, shapes, split_size=0):
     return rows
 
 
+def nsys_kernel_stats(name):
+    """Per-kernel timings read back out of an nsys trace in docs/profiles/.
+
+    Read from the trace rather than restated in prose: a hand-written timeline
+    figure survives the environment it was measured on, and then silently
+    describes a machine that is no longer the one being published.
+
+    Returns a list of dicts, slowest first, or None when the trace is missing or
+    nsys cannot read it.
+    """
+    report = os.path.join(REPO_ROOT, "docs", "profiles", f"{name}.nsys-rep")
+    if not os.path.exists(report):
+        return None
+    try:
+        raw = subprocess.check_output(
+            [
+                "nsys",
+                "stats",
+                "--report",
+                "cuda_gpu_kern_sum",
+                "--format",
+                "csv",
+                report,
+            ],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+    rows = []
+    for line in raw.splitlines():
+        parts = next(csv.reader([line]), [])
+        if len(parts) < 9 or parts[0] == "Time (%)":
+            continue
+        try:
+            rows.append(
+                {
+                    "pct": float(parts[0]),
+                    "total_ns": float(parts[1]),
+                    "instances": int(parts[2]),
+                    "avg_ns": float(parts[3]),
+                    "med_ns": float(parts[4]),
+                    "min_ns": float(parts[5]),
+                    "max_ns": float(parts[6]),
+                    "stddev_ns": float(parts[7]),
+                    "name": short_kernel_name(parts[8]),
+                }
+            )
+        except ValueError:
+            continue
+    return rows or None
+
+
+def short_kernel_name(mangled):
+    """`void <unnamed>::prefill_kernel<(bool)1>(...)` -> `prefill_kernel<(bool)1>`."""
+    name = mangled.strip().strip('"')
+    name = name.split("(", 1)[0] if "(" in name.split("<", 1)[0] else name
+    for prefix in ("void ", "<unnamed>::", "(anonymous namespace)::"):
+        name = name.replace(prefix, "")
+    depth, cut = 0, len(name)
+    for index, char in enumerate(name):
+        if char == "<":
+            depth += 1
+        elif char == ">":
+            depth -= 1
+        elif char == "(" and depth == 0:
+            cut = index
+            break
+    return name[:cut].strip()
+
+
+def timeline_section(w):
+    """Timeline observations, derived from whatever traces are on disk."""
+    w("## Timeline observations (nsys)")
+    w("")
+
+    prefill_rows = nsys_kernel_stats("prefill")
+    decode_rows = nsys_kernel_stats("decode")
+
+    if prefill_rows is None and decode_rows is None:
+        w("No nsys traces were found in this directory, so there is nothing to report")
+        w("here. Regenerate them with:")
+        w("")
+        w("```bash")
+        w("nsys profile -t cuda -o docs/profiles/prefill python bench/profile_workload.py prefill")
+        w("nsys profile -t cuda -o docs/profiles/decode  python bench/profile_workload.py decode")
+        w("```")
+        w("")
+        return
+
+    w("Read back from `prefill.nsys-rep` and `decode.nsys-rep` in this directory,")
+    w("collected with `nsys profile -t cuda` (no `--gpu-metrics-device`, which is")
+    w("counter-gated). These are wall-clock kernel durations from the trace, not")
+    w("counter measurements.")
+    w("")
+    w("| trace | kernel | launches | mean us | median us | min us | max us | spread (sd/mean) |")
+    w("| :-- | :-- | ---: | ---: | ---: | ---: | ---: | ---: |")
+    for label, rows in (("prefill", prefill_rows), ("decode", decode_rows)):
+        for row in rows or []:
+            if row["instances"] < 5:  # skip one-off setup kernels
+                continue
+            spread = 100.0 * row["stddev_ns"] / row["avg_ns"] if row["avg_ns"] else 0.0
+            w(
+                f"| {label} | `{row['name']}` | {row['instances']} | "
+                f"{row['avg_ns'] / 1e3:.2f} | {row['med_ns'] / 1e3:.2f} | "
+                f"{row['min_ns'] / 1e3:.2f} | {row['max_ns'] / 1e3:.2f} | {spread:.1f}% |"
+            )
+    w("")
+
+    if prefill_rows:
+        main_kernel = prefill_rows[0]
+        spread = (
+            100.0 * main_kernel["stddev_ns"] / main_kernel["avg_ns"]
+            if main_kernel["avg_ns"]
+            else 0.0
+        )
+        w(
+            f"- Prefill is one kernel per call: `{main_kernel['name']}` accounts for "
+            f"{main_kernel['pct']:.1f}% of GPU time across {main_kernel['instances']} "
+            f"launches, with {spread:.1f}% run-to-run spread."
+        )
+
+    if decode_rows:
+        split = next((r for r in decode_rows if "split" in r["name"]), None)
+        merge = next((r for r in decode_rows if "merge" in r["name"]), None)
+        if split and merge:
+            per_call = split["avg_ns"] + merge["avg_ns"]
+            merge_pct = 100.0 * merge["avg_ns"] / per_call if per_call else 0.0
+            w(
+                f"- Decode is two kernels per call. The merge pass costs "
+                f"{merge['avg_ns'] / 1e3:.2f} us against the split pass's "
+                f"{split['avg_ns'] / 1e3:.2f} us, so it is {merge_pct:.1f}% of the "
+                f"call at the chunk size the selection rule picked for this shape "
+                f"(B=1, H=12, S=1024). That fraction is the price paid for "
+                f"parallelism, and it grows as the chunk shrinks — which is why the "
+                f"rule prefers the largest chunk that still fills the device rather "
+                f"than the finest split available."
+            )
+    w("")
+
+
 def main():
     if not torch.cuda.is_available():
         raise SystemExit("a CUDA device is required")
@@ -152,14 +295,35 @@ def main():
 
     w("# On-box performance analysis (T1.8)")
     w("")
-    w("Generated by `bench/run_analysis.py`. Every figure here comes from CUDA-event")
-    w("timings, the CUDA occupancy API, or `cudaFuncGetAttributes` — **this machine has")
-    w("no access to GPU performance counters**, so nothing below is a profiler")
-    w("measurement. SM/memory speed-of-light, achieved occupancy, measured DRAM")
-    w("throughput and bank-conflict counts require Nsight Compute and are produced")
-    w("separately on a counter-capable card by `bench/profile_ncu.sh` (T1.9), landing in")
-    w("[summary.md](summary.md). Those numbers are deliberately absent here rather than")
-    w("estimated.")
+    w("Generated by `bench/run_analysis.py` on the machine described below. Read the")
+    w("two kinds of number here differently.")
+    w("")
+    w("**MEASURED** — observed on this machine, by a clock:")
+    w("")
+    w("- Kernel wall-clock times, from CUDA events (medians of repeated launches).")
+    w("- Per-kernel durations and launch counts, read back from the nsys traces.")
+    w("- Kernel resource footprints (registers/thread, shared memory/block) reported")
+    w("  by `cudaFuncGetAttributes`.")
+    w("")
+    w("**MODELED** — arithmetic derived from those times plus the shapes, not observed:")
+    w("")
+    w("- TFLOP/s and GB/s, computed as analytic FLOP and byte counts divided by the")
+    w("  measured time. They assume the kernel moves exactly the bytes the model says;")
+    w("  real traffic including cache behaviour is not visible without counters.")
+    w("- '% of peak' columns, which additionally assume a peak this card never")
+    w("  advertises directly (see the compute-peak note below).")
+    w("- Theoretical occupancy, from `cudaOccupancyMaxActiveBlocksPerMultiprocessor`.")
+    w("  It is an upper bound the hardware permits, **not** achieved occupancy.")
+    w("")
+    w("**NOT AVAILABLE HERE** — every counter-derived quantity. This machine denies")
+    w("access to GPU performance counters (`ERR_NVGPUCTRPERM`, confirmed by smoke test;")
+    w("it is a container, and the restriction is a per-host driver property that cannot")
+    w("be lifted from inside). So SM and memory speed-of-light, **achieved** occupancy,")
+    w("**measured** DRAM throughput and shared-memory bank-conflict counts are absent")
+    w("rather than estimated. They are produced by `bench/profile_ncu.sh` on a")
+    w("counter-capable RTX 3090 and land in [summary.md](summary.md), which is tracked")
+    w("as open work (T1.9b) against a docs-only release. Until then, every claim in")
+    w("this file about *which unit saturates* is a model, and is labelled as one.")
     w("")
     w("| | |")
     w("| :-- | :-- |")
@@ -287,21 +451,7 @@ def main():
     w("here about how this kernel compares to a state-of-the-art decode implementation.")
     w("")
 
-    w("## Timeline observations (nsys)")
-    w("")
-    w("From `prefill.nsys-rep` and `decode.nsys-rep` in this directory, collected with")
-    w("`nsys profile -t cuda` (no `--gpu-metrics-device`, which is counter-gated):")
-    w("")
-    w("- Prefill is a single kernel per call with no host-side gap between iterations;")
-    w("  25 launches vary by 0.9%, so the measurement is stable and there is no")
-    w("  launch-overhead surprise to chase.")
-    w("- Decode is two kernels per call. The merge pass is ~4.5% of the call at Sk=512")
-    w("  and grows as the chunk shrinks, which is the cost the selection rule is trading")
-    w("  against parallelism — it prefers the largest chunk that still fills the device")
-    w("  rather than the finest split available.")
-    w("- No unexpected memcpys appear between launches: the workspace comes from the")
-    w("  caching allocator and stays on device.")
-    w("")
+    timeline_section(w)
 
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
     with open(OUT_PATH, "w", encoding="utf-8") as handle:
