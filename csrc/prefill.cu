@@ -28,20 +28,22 @@
 
 namespace {
 
-constexpr int kBr = kPrefillBr;          // query rows per block
-constexpr int kBc = kPrefillBc;          // key rows per tile
+constexpr int kBr = kPrefillBr; // query rows per block
+constexpr int kBc = kPrefillBc; // key rows per tile
 constexpr int kThreads = kPrefillThreads;
 
-constexpr int kRowsPerThread = 4;        // query rows owned by one thread
-constexpr int kColsPerThread = 4;        // key columns owned by one thread
-constexpr int kDimsPerThread = 8;        // head dims owned by one thread
-constexpr int kColGroups = kBc / kColsPerThread;   // 8
-constexpr int kRowGroups = kBr / kRowsPerThread;   // 16
-constexpr int kPsStride = kBr + 4;       // padded to break bank conflicts
+constexpr int kRowsPerThread = 4; // query rows owned by one thread
+constexpr int kColsPerThread = 4; // key columns owned by one thread
+constexpr int kDimsPerThread = 8; // head dims owned by one thread
+constexpr int kColGroups = kBc / kColsPerThread; // 8
+constexpr int kRowGroups = kBr / kRowsPerThread; // 16
+constexpr int kPsStride = kBr + 4; // padded to break bank conflicts
 
 static_assert(kHeadDim == 64, "the v2 kernels are specialised for head_dim=64");
-static_assert(kRowGroups * kColGroups == kThreads, "thread grid must cover the tile");
-static_assert(kColGroups * kDimsPerThread == kHeadDim, "column groups must cover head_dim");
+static_assert(kRowGroups * kColGroups == kThreads,
+              "thread grid must cover the tile");
+static_assert(kColGroups * kDimsPerThread == kHeadDim,
+              "column groups must cover head_dim");
 static_assert(kHeadDim % 8 == 0, "vectorised loads move 8 halves at a time");
 
 // Column swizzle for the dim-major tiles. Staging a tile writes one row of the
@@ -147,7 +149,8 @@ __device__ __forceinline__ void stage_query(const __half *__restrict__ src,
 }
 
 // Reduce a per-row value across the 8 column groups that share a row group.
-// Those threads occupy 8 consecutive lanes, so the butterfly stays inside a warp.
+// Those threads occupy 8 consecutive lanes, so the butterfly stays inside a
+// warp.
 template <bool IS_MAX>
 __device__ __forceinline__ float row_reduce(float x) {
 #pragma unroll
@@ -167,9 +170,8 @@ __global__ __launch_bounds__(kThreads) void prefill_kernel(
   const int batch = blockIdx.z;
   const int n_heads = gridDim.y;
 
-  const size_t head_off =
-      (static_cast<size_t>(batch) * n_heads + head) * static_cast<size_t>(N) *
-      kHeadDim;
+  const size_t head_off = (static_cast<size_t>(batch) * n_heads + head) *
+                          static_cast<size_t>(N) * kHeadDim;
   q += head_off;
   k += head_off;
   v += head_off;
@@ -178,14 +180,14 @@ __global__ __launch_bounds__(kThreads) void prefill_kernel(
   const int tid = threadIdx.x;
   const int row_group = tid / kColGroups;
   const int col_group = tid % kColGroups;
-  const int i0 = row_group * kRowsPerThread;  // first query row of this thread
-  const int j0 = col_group * kColsPerThread;  // first key column of this thread
-  const int d0 = col_group * kDimsPerThread;  // first head dim of this thread
+  const int i0 = row_group * kRowsPerThread; // first query row of this thread
+  const int j0 = col_group * kColsPerThread; // first key column of this thread
+  const int d0 = col_group * kDimsPerThread; // first head dim of this thread
 
-  __shared__ float q_tile_s[kHeadDim][kBr];   // [dd][i], swizzled columns
-  __shared__ float k_tile_s[kHeadDim][kBc];   // [dd][j], swizzled columns
-  __shared__ float v_tile_s[kBc][kHeadDim];   // [j][dd]
-  __shared__ float p_tile_s[kBc][kPsStride];  // [j][i]
+  __shared__ float q_tile_s[kHeadDim][kBr];  // [dd][i], swizzled columns
+  __shared__ float k_tile_s[kHeadDim][kBc];  // [dd][j], swizzled columns
+  __shared__ float v_tile_s[kBc][kHeadDim];  // [j][dd]
+  __shared__ float p_tile_s[kBc][kPsStride]; // [j][i]
 
   const int q_row0 = q_tile * kBr;
   stage_query(q, q_row0, min(kBr, N - q_row0), &q_tile_s[0][0], tid, scale);
@@ -195,7 +197,7 @@ __global__ __launch_bounds__(kThreads) void prefill_kernel(
   float l_i[kRowsPerThread];
 #pragma unroll
   for (int r = 0; r < kRowsPerThread; ++r) {
-    m_i[r] = -1e30f;  // finite so the first rescale factor is 0, not NaN
+    m_i[r] = -1e30f; // finite so the first rescale factor is 0, not NaN
     l_i[r] = 0.f;
 #pragma unroll
     for (int d = 0; d < kDimsPerThread; ++d) {
@@ -217,7 +219,7 @@ __global__ __launch_bounds__(kThreads) void prefill_kernel(
   for (int t = 0; t < n_kv_tiles; ++t) {
     const int k_row0 = t * kBc;
 
-    __syncthreads();  // previous tile's PV has finished reading V/P
+    __syncthreads(); // previous tile's PV has finished reading V/P
     store_dim_major(k_raw, &k_tile_s[0][0], tid);
     store_row_major(v_raw, &v_tile_s[0][0], tid);
     if (t + 1 < n_kv_tiles) {
@@ -239,10 +241,10 @@ __global__ __launch_bounds__(kThreads) void prefill_kernel(
     }
 #pragma unroll 8
     for (int dd = 0; dd < kHeadDim; ++dd) {
-      const float4 qv = *reinterpret_cast<const float4 *>(
-          &q_tile_s[dd][swizzle(i0, dd)]);
-      const float4 kv = *reinterpret_cast<const float4 *>(
-          &k_tile_s[dd][swizzle(j0, dd)]);
+      const float4 qv =
+          *reinterpret_cast<const float4 *>(&q_tile_s[dd][swizzle(i0, dd)]);
+      const float4 kv =
+          *reinterpret_cast<const float4 *>(&k_tile_s[dd][swizzle(j0, dd)]);
       const float qr[kRowsPerThread] = {qv.x, qv.y, qv.z, qv.w};
       const float kc[kColsPerThread] = {kv.x, kv.y, kv.z, kv.w};
 #pragma unroll
@@ -264,7 +266,7 @@ __global__ __launch_bounds__(kThreads) void prefill_kernel(
       for (int c = 0; c < kColsPerThread; ++c) {
         const int k_idx = k_row0 + j0 + c;
         const bool keep = (k_idx < N) && (!CAUSAL || k_idx <= q_idx);
-        s[r][c] = keep ? s[r][c] : -INFINITY;  // Q was pre-scaled at stage time
+        s[r][c] = keep ? s[r][c] : -INFINITY; // Q was pre-scaled at stage time
         row_max = fmaxf(row_max, s[r][c]);
       }
       row_max = row_reduce<true>(row_max);
@@ -306,8 +308,7 @@ __global__ __launch_bounds__(kThreads) void prefill_kernel(
 
 #pragma unroll 4
     for (int j = 0; j < kBc; ++j) {
-      const float4 pv =
-          *reinterpret_cast<const float4 *>(&p_tile_s[j][i0]);
+      const float4 pv = *reinterpret_cast<const float4 *>(&p_tile_s[j][i0]);
       const float4 v0 = *reinterpret_cast<const float4 *>(&v_tile_s[j][d0]);
       const float4 v1 = *reinterpret_cast<const float4 *>(&v_tile_s[j][d0 + 4]);
       const float pr[kRowsPerThread] = {pv.x, pv.y, pv.z, pv.w};
@@ -336,12 +337,12 @@ __global__ __launch_bounds__(kThreads) void prefill_kernel(
     for (int d = 0; d < kDimsPerThread; ++d) {
       out[d] = __float2half(acc[r][d] * inv_l);
     }
-    *reinterpret_cast<float4 *>(o + static_cast<size_t>(q_idx) * kHeadDim + d0) =
-        *reinterpret_cast<const float4 *>(out);
+    *reinterpret_cast<float4 *>(o + static_cast<size_t>(q_idx) * kHeadDim +
+                                d0) = *reinterpret_cast<const float4 *>(out);
   }
 }
 
-}  // namespace
+} // namespace
 
 void launch_prefill(const at::Tensor &q, const at::Tensor &k,
                     const at::Tensor &v, at::Tensor &o, bool causal,
@@ -353,17 +354,20 @@ void launch_prefill(const at::Tensor &q, const at::Tensor &k,
   const dim3 grid((seq + kBr - 1) / kBr, heads, batch);
   const cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
-  const auto *q_ptr = reinterpret_cast<const __half *>(q.const_data_ptr<at::Half>());
-  const auto *k_ptr = reinterpret_cast<const __half *>(k.const_data_ptr<at::Half>());
-  const auto *v_ptr = reinterpret_cast<const __half *>(v.const_data_ptr<at::Half>());
+  const auto *q_ptr =
+      reinterpret_cast<const __half *>(q.const_data_ptr<at::Half>());
+  const auto *k_ptr =
+      reinterpret_cast<const __half *>(k.const_data_ptr<at::Half>());
+  const auto *v_ptr =
+      reinterpret_cast<const __half *>(v.const_data_ptr<at::Half>());
   auto *o_ptr = reinterpret_cast<__half *>(o.data_ptr<at::Half>());
 
   if (causal) {
-    prefill_kernel<true><<<grid, kThreads, 0, stream>>>(q_ptr, k_ptr, v_ptr,
-                                                        o_ptr, seq, scale);
+    prefill_kernel<true>
+        <<<grid, kThreads, 0, stream>>>(q_ptr, k_ptr, v_ptr, o_ptr, seq, scale);
   } else {
-    prefill_kernel<false><<<grid, kThreads, 0, stream>>>(q_ptr, k_ptr, v_ptr,
-                                                         o_ptr, seq, scale);
+    prefill_kernel<false>
+        <<<grid, kThreads, 0, stream>>>(q_ptr, k_ptr, v_ptr, o_ptr, seq, scale);
   }
   C10_CUDA_KERNEL_LAUNCH_CHECK();
 }
@@ -375,8 +379,8 @@ void prefill_occupancy(std::vector<OccupancyEntry> &out) {
     cudaFuncAttributes attr{};
     C10_CUDA_CHECK(cudaFuncGetAttributes(&attr, func));
     int blocks = 0;
-    C10_CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &blocks, func, kThreads, 0));
+    C10_CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks, func,
+                                                                 kThreads, 0));
     out.push_back({name, kThreads, attr.numRegs,
                    static_cast<int>(attr.sharedSizeBytes), blocks,
                    static_cast<double>(blocks) * kThreads /

@@ -1,10 +1,11 @@
 // Single-query attention against a KV cache (the decode step).
 //
 // Prefill gets its parallelism from the query dimension; decode has exactly one
-// query row per (batch, head), so the only axis left to spread across the GPU is
-// the cached-key dimension. This is a split-K design:
+// query row per (batch, head), so the only axis left to spread across the GPU
+// is the cached-key dimension. This is a split-K design:
 //
-//   pass 1  grid (splits, heads, batch): each block reduces one chunk of at most
+//   pass 1  grid (splits, heads, batch): each block reduces one chunk of at
+//   most
 //           kDecodeSplit cached keys into a partial (m, l, acc[64]) triple that
 //           it writes to a workspace buffer.
 //   pass 2  grid (heads, batch): merges the partials with the usual log-sum-exp
@@ -12,8 +13,9 @@
 //
 // Inside a block the work is warp-per-key-row and lane-per-dim-pair: lane `t`
 // holds head dims 2t and 2t+1, so a warp reading one cached row issues a single
-// 128-byte coalesced request. Decode is bandwidth-bound, so the layout is chosen
-// to keep every global access perfectly coalesced rather than to save FLOPs.
+// 128-byte coalesced request. Decode is bandwidth-bound, so the layout is
+// chosen to keep every global access perfectly coalesced rather than to save
+// FLOPs.
 
 #include <ATen/ATen.h>
 #include <ATen/cuda/CUDAContext.h>
@@ -26,7 +28,7 @@ namespace {
 
 constexpr int kThreads = kDecodeThreads;
 constexpr int kWarps = kThreads / 32;
-constexpr int kDimsPerLane = 2;  // one __half2 per lane covers head_dim=64
+constexpr int kDimsPerLane = 2; // one __half2 per lane covers head_dim=64
 
 static_assert(kHeadDim == 64, "the v2 kernels are specialised for head_dim=64");
 static_assert(kHeadDim == 32 * kDimsPerLane, "one warp must cover head_dim");
@@ -59,9 +61,8 @@ __global__ __launch_bounds__(kThreads) void decode_split_kernel(
   const int warp = threadIdx.x >> 5;
   const int d0 = lane * kDimsPerLane;
 
-  const size_t head_off =
-      (static_cast<size_t>(batch) * n_heads + head) * static_cast<size_t>(max_seq) *
-      kHeadDim;
+  const size_t head_off = (static_cast<size_t>(batch) * n_heads + head) *
+                          static_cast<size_t>(max_seq) * kHeadDim;
   const size_t out_off =
       ((static_cast<size_t>(batch) * n_heads + head) * n_splits + split);
 
@@ -147,8 +148,7 @@ __global__ __launch_bounds__(kHeadDim) void decode_merge_kernel(
   const int n_heads = gridDim.x;
   const int d = threadIdx.x;
 
-  const size_t base =
-      (static_cast<size_t>(batch) * n_heads + head) * n_splits;
+  const size_t base = (static_cast<size_t>(batch) * n_heads + head) * n_splits;
 
   float m_all = -1e30f;
   for (int s = 0; s < n_splits; ++s) {
@@ -162,7 +162,7 @@ __global__ __launch_bounds__(kHeadDim) void decode_merge_kernel(
   for (int s = 0; s < n_splits; ++s) {
     const float l_s = partial_ml[(base + s) * 2 + 1];
     if (l_s <= 0.f) {
-      continue;  // chunk lies past this sequence's length
+      continue; // chunk lies past this sequence's length
     }
     const float factor = __expf(partial_ml[(base + s) * 2] - m_all);
     l_all = fmaf(l_s, factor, l_all);
@@ -174,7 +174,7 @@ __global__ __launch_bounds__(kHeadDim) void decode_merge_kernel(
       __float2half(acc * inv_l);
 }
 
-}  // namespace
+} // namespace
 
 // A decode launch has only batch*heads*splits blocks, so the chunk size is what
 // decides whether the GPU is filled. Pick the largest chunk that still reaches
@@ -215,10 +215,12 @@ void launch_decode(const at::Tensor &q, const at::Tensor &k_cache,
   const auto workspace_opts = q.options().dtype(at::kFloat);
   at::Tensor partial_acc =
       at::empty({batch, heads, n_splits, kHeadDim}, workspace_opts);
-  at::Tensor partial_ml = at::empty({batch, heads, n_splits, 2}, workspace_opts);
+  at::Tensor partial_ml =
+      at::empty({batch, heads, n_splits, 2}, workspace_opts);
 
   const cudaStream_t stream = at::cuda::getCurrentCUDAStream();
-  const auto *q_ptr = reinterpret_cast<const __half *>(q.const_data_ptr<at::Half>());
+  const auto *q_ptr =
+      reinterpret_cast<const __half *>(q.const_data_ptr<at::Half>());
   const auto *k_ptr =
       reinterpret_cast<const __half *>(k_cache.const_data_ptr<at::Half>());
   const auto *v_ptr =
@@ -252,8 +254,8 @@ void decode_occupancy(std::vector<OccupancyEntry> &out) {
                        props->maxThreadsPerMultiProcessor});
   };
 
-  record("decode_split_kernel", reinterpret_cast<const void *>(decode_split_kernel),
-         kDecodeThreads);
-  record("decode_merge_kernel", reinterpret_cast<const void *>(decode_merge_kernel),
-         kHeadDim);
+  record("decode_split_kernel",
+         reinterpret_cast<const void *>(decode_split_kernel), kDecodeThreads);
+  record("decode_merge_kernel",
+         reinterpret_cast<const void *>(decode_merge_kernel), kHeadDim);
 }

@@ -2,6 +2,7 @@ import csv
 import math
 import os
 
+
 def read_results(csv_path):
     """
     Reads the benchmark results CSV and parses it into a dictionary:
@@ -19,7 +20,7 @@ def read_results(csv_path):
     }
     """
     data = {}
-    with open(csv_path, 'r', encoding='utf-8') as f:
+    with open(csv_path, encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
             N = int(row['N'])

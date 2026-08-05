@@ -57,7 +57,8 @@ at::Tensor decode_impl(const at::Tensor &q, const at::Tensor &k_cache,
   TORCH_CHECK(seq_lens.dim() == 1 && seq_lens.size(0) == q.size(0),
               "seq_lens must be 1-D of length B=", q.size(0), ", got ",
               seq_lens.sizes());
-  TORCH_CHECK(q.device() == k_cache.device() && q.device() == v_cache.device() &&
+  TORCH_CHECK(q.device() == k_cache.device() &&
+                  q.device() == v_cache.device() &&
                   q.device() == seq_lens.device(),
               "q, caches and seq_lens must live on the same device");
   TORCH_CHECK(std::isfinite(scale), "scale must be finite");
@@ -110,9 +111,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.doc() = "Batched multi-head causal FlashAttention kernels for head_dim=64";
   m.attr("head_dim") = kHeadDim;
 
-  m.def("prefill", &prefill, "Full-sequence attention (fp16 in/out, fp32 accum)",
-        py::arg("q"), py::arg("k"), py::arg("v"), py::arg("causal"),
-        py::arg("scale"));
+  m.def("prefill", &prefill,
+        "Full-sequence attention (fp16 in/out, fp32 accum)", py::arg("q"),
+        py::arg("k"), py::arg("v"), py::arg("causal"), py::arg("scale"));
   m.def("decode", &decode, "Single-query attention against a KV cache",
         py::arg("q"), py::arg("k_cache"), py::arg("v_cache"),
         py::arg("seq_lens"), py::arg("scale"));

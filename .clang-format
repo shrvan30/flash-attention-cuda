@@ -1,0 +1,17 @@
+---
+# LLVM style is what the v2 kernel sources were already written in; this file
+# pins it so CI can check rather than assume.
+#
+# Scope note: only csrc/ is checked. The v1 kernels under src/legacy/ were moved
+# there unchanged on purpose, and reformatting them would break that guarantee
+# for no benefit — they are kept for benchmarking, not for further development.
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++17
+ColumnLimit: 80
+IndentWidth: 2
+DerivePointerAlignment: false
+PointerAlignment: Right
+AllowShortFunctionsOnASingleLine: Inline
+AlwaysBreakTemplateDeclarations: Yes
+SortIncludes: CaseSensitive

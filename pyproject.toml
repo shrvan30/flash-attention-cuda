@@ -2,3 +2,21 @@
 requires = ["setuptools>=64", "wheel"]
 build-backend = "_build_backend"
 backend-path = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = [
+    # Long lines here are overwhelmingly embedded profiler fixtures, chart
+    # labels and benchmark table rows, where wrapping hurts readability.
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# The reference implementation mirrors the FlashAttention paper's notation, where
+# O is the output matrix. Renaming it to satisfy the ambiguous-name rule would
+# obscure the maths the file exists to document.
+"src/attention_cpu.py" = ["E741"]

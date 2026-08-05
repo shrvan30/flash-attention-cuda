@@ -30,8 +30,8 @@ void check_legacy_inputs(const at::Tensor &q, const at::Tensor &k,
               ") tensors");
   TORCH_CHECK(q.sizes() == k.sizes() && q.sizes() == v.sizes(),
               "legacy kernels expect identical q/k/v shapes");
-  TORCH_CHECK(q.size(1) == kHeadDim, "legacy kernels expect head_dim == ",
-              kHeadDim);
+  TORCH_CHECK(q.size(1) == kHeadDim,
+              "legacy kernels expect head_dim == ", kHeadDim);
 }
 
 } // namespace

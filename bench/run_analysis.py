@@ -11,7 +11,6 @@ bench/profile_ncu.sh on a counter-capable card.
 import math
 import os
 import subprocess
-import sys
 
 import torch
 

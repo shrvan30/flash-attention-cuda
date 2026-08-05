@@ -1,7 +1,9 @@
-import numpy as np
-import time
 import csv
 import os
+import time
+
+import numpy as np
+
 try:
     import matplotlib.pyplot as plt
     HAS_MATPLOTLIB = True
@@ -64,7 +66,7 @@ def benchmark_attention_cpu(N, d, n_runs=10):
     """
     Benchmark CPU attention implementation.
     """
-    print(f"\nRunning CPU Attention Benchmark")
+    print("\nRunning CPU Attention Benchmark")
     print(f"N = {N}, d = {d}")
     # ----------------------------------------
     # Random input tensors
@@ -86,7 +88,8 @@ def benchmark_attention_cpu(N, d, n_runs=10):
     # ----------------------------------------
     start = time.perf_counter()
     for _ in range(n_runs):
-        O = attention_cpu(Q, K, V)
+        # The result is discarded on purpose; this loop only times the call.
+        attention_cpu(Q, K, V)
 
     end = time.perf_counter()
     avg_time_ms = ((end - start) / n_runs) * 1000
@@ -158,7 +161,7 @@ def run_full_benchmark():
 
         writer.writerows(results)
 
-    print(f"\nBenchmark saved to:")
+    print("\nBenchmark saved to:")
     print(csv_path)
 
     # -------------------------------------------------
@@ -191,7 +194,7 @@ def run_full_benchmark():
 
     plt.savefig(plot_path)
 
-    print(f"Runtime plot saved to:")
+    print("Runtime plot saved to:")
     print(plot_path)
 
 
