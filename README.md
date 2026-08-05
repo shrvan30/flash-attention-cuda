@@ -1,5 +1,7 @@
 # flash-attention-cuda
 
+[![CI](https://github.com/shrvan30/flash-attention-cuda/actions/workflows/ci.yml/badge.svg)](https://github.com/shrvan30/flash-attention-cuda/actions/workflows/ci.yml)
+
 Batched multi-head causal FlashAttention for `head_dim = 64`, written from scratch in CUDA and
 packaged as a PyTorch extension. fp16 in and out, fp32 accumulation, separate kernels for
 prefill and for decoding against a KV cache.
