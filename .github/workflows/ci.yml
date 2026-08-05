@@ -20,6 +20,13 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-lint-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: pip-lint-${{ runner.os }}-
+
       - run: pip install ruff clang-format
       - run: ruff check .
 
@@ -53,6 +60,16 @@ jobs:
           df -h /
           rm -rf /opt/hostedtoolcache /usr/share/dotnet /usr/local/lib/android 2>/dev/null || true
           df -h /
+
+      # The cu128 wheel and its nvidia-* dependencies are several gigabytes;
+      # without this they are re-downloaded on every run. Keyed on the workflow
+      # file, so the cache is only invalidated when the install step changes.
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: /root/.cache/pip
+          key: pip-cuda-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: pip-cuda-
 
       # A CUDA-enabled torch, not the CPU wheel. The CPU wheel omits
       # c10/cuda/impl/cuda_cmake_macros.h, a header generated only for CUDA
