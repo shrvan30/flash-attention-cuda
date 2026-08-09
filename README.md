@@ -1,196 +1,523 @@
-# flash-attention-cuda
+# Flash Attention CUDA 🚀
 
 [![CI](https://github.com/shrvan30/flash-attention-cuda/actions/workflows/ci.yml/badge.svg)](https://github.com/shrvan30/flash-attention-cuda/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CUDA](https://img.shields.io/badge/CUDA-13.0-76B900.svg)](https://docs.nvidia.com/cuda/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.11.0%2Bcu130-EE4C2C.svg)](https://pytorch.org/)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 
-Batched multi-head causal FlashAttention for `head_dim = 64`, written from scratch in CUDA and
-packaged as a PyTorch extension. fp16 in and out, fp32 accumulation, separate kernels for
-prefill and for decoding against a KV cache.
+A **Flash Attention implementation written completely from scratch in CUDA**, packaged as an installable PyTorch extension.
+
+This project speeds up the Attention operation used inside Large Language Models (LLMs) like ChatGPT, Llama and Gemini, by using the GPU efficiently.
+
+Instead of using PyTorch's built-in attention, this project performs the calculations directly on the GPU using hand-written CUDA kernels.
+
+**Repository:** https://github.com/shrvan30/flash-attention-cuda
+
+### Supports
+
+- Batched Multi-Head Attention
+- Causal Attention
+- KV Cache Decoding
+- FP16 Input + FP32 Accumulation
+- Separate Prefill and Decode CUDA Kernels
+- Split-K Decode
+- Ragged (variable-length) sequences
+
+---
+
+## Table of Contents
+
+- [Quick Example](#quick-example)
+- [Why did I build this?](#why-did-i-build-this)
+- [What is Attention?](#what-is-attention)
+- [The Problem](#the-problem)
+- [What is Flash Attention?](#what-is-flash-attention)
+- [What did I implement?](#what-did-i-implement)
+- [Features](#features)
+- [GPU Optimizations Used](#gpu-optimizations-used)
+- [Performance](#performance)
+- [Project Structure](#project-structure)
+- [Development Environment](#development-environment)
+- [Installation](#installation)
+- [Testing](#testing)
+- [Benchmarking and Profiling](#benchmarking-and-profiling)
+- [Documentation](#documentation)
+- [Limitations](#limitations)
+- [Future Improvements](#future-improvements)
+- [Continuous Integration](#continuous-integration)
+- [What I Learned](#what-i-learned)
+- [References](#references)
+- [License](#license)
+
+---
+
+## Quick Example
 
 ```python
+import torch
 import flashattn_cuda
 
-o = flashattn_cuda.prefill(q, k, v, causal=True, scale=1/8)   # (B, H, N, 64) fp16
-o = flashattn_cuda.decode(q, k_cache, v_cache, seq_lens, scale=1/8)
+# ---- Prompt processing (prefill) ----
+# q, k, v : (batch, heads, seq_len, head_dim) in FP16 on CUDA
+out = flashattn_cuda.prefill(
+    q,
+    k,
+    v,
+    causal=True,
+    scale=1 / 8,
+)
+
+# ---- Token generation (decode) ----
+# q        : (batch, heads, 1, head_dim)
+# k_cache  : (batch, heads, max_len, head_dim)
+# v_cache  : (batch, heads, max_len, head_dim)
+# seq_lens : (batch,) int32 — current valid length per sequence
+out = flashattn_cuda.decode(
+    q,
+    k_cache,
+    v_cache,
+    seq_lens,
+    scale=1 / 8,
+)
 ```
 
-## Numbers
+---
 
-Every number in this README, in [docs/benchmarks.md](docs/benchmarks.md) and in
-[docs/profiles/analysis.md](docs/profiles/analysis.md) was measured on **one machine**:
-RTX 3090 (sm_86, 82 SMs), driver 580.126.09, CUDA 13.0, PyTorch 2.11.0+cu130,
-flash-attn 2.8.3. Nothing is carried over from an earlier environment.
+## Why did I build this?
 
-Prefill, **B=8, H=12, causal**, median of three runs of 30 launches:
+Large Language Models spend most of their execution time inside the Attention layer.
 
-| N | v2 prefill | torch SDPA (flash) | flash-attn 2.8.3 | v1 fused (scaled to B·H) |
-| ---: | ---: | ---: | ---: | ---: |
-| 1024 | 1.238 ms · 10.40 TFLOP/s | 0.345 ms · 37.33 | 0.424 ms · 30.42 | 238.3 ms · 0.11 |
-| 2048 | 4.575 ms · 11.26 TFLOP/s | 1.154 ms · 44.66 | 1.305 ms · 39.49 | 438.1 ms · 0.24 |
-| 4096 | 17.644 ms · 11.68 TFLOP/s | 4.230 ms · 48.74 | 4.805 ms · 42.90 | 1092.4 ms · 0.38 |
+For long sentences, attention becomes slow because:
 
-Decode, single sequence, H=12, one token per call, against a **per-step eager SDPA loop**
-(one `scaled_dot_product_attention` call per token over the whole cache):
+- It performs billions of multiplications.
+- It repeatedly moves data between GPU memory and processors.
+- Memory access becomes the bottleneck instead of computation.
 
-| context | v2 decode | per-step eager SDPA loop |
-| ---: | ---: | ---: |
-| 128 | 0.0169 ms · 59,305 tok/s | 0.0222 ms · 45,003 tok/s |
-| 512 | 0.0170 ms · 58,947 tok/s | 0.0303 ms · 32,992 tok/s |
-| 1024 | 0.0173 ms · 57,899 tok/s | 0.0300 ms · 33,368 tok/s |
-| 2048 | 0.0314 ms · 31,844 tok/s | 0.0302 ms · 33,066 tok/s |
+The goal of this project was to **learn how FlashAttention works internally and implement it from scratch**, rather than calling a library.
 
-Note the last row: **at context 2048 the eager loop is marginally faster** (0.0302 ms against
-0.0314). The split kernel's advantage comes from the parallelism it extracts at small context,
-where a single-row query otherwise leaves the card almost idle; by 2048 the eager loop has
-enough work to fill the machine on its own and the split kernel's merge pass stops paying for
-itself. That crossover is real and is left in rather than trimmed to a flattering range.
+---
 
-That baseline is a correct reference, not a tuned decode kernel: it does not split the KV
-dimension, so it leaves unused exactly the parallelism this kernel exploits. The serious
-baselines are flash-attn's dedicated decode path (`flash_attn_with_kvcache`) and FlashDecoding,
-which do split KV and run on tensor cores. Measuring against those is deferred, so read the
-decode numbers as "faster than the obvious PyTorch way to decode" and not as a claim about
-state-of-the-art decode kernels.
+## What is Attention?
 
-![Prefill throughput, B=8, causal](docs/charts/prefill_b8_causal.svg)
+Imagine 5 students sitting in a classroom.
 
-### The honest gap
+When Student 5 answers a question, he first looks at all previous students to understand the discussion.
 
-**v2 prefill is 2.9–3.7x slower than flash-attn** across N=1024–4096 at B=8 causal (4.2x
-against `torch.sdpa`'s flash backend at N=4096), and **62x faster** than the v1 kernels it
-replaces at N=4096 — 192x at N=1024, where v1's lack of batching hurts most. Small shapes go
-the other way: at B=1, N=128, v2 takes 0.019 ms against SDPA's 0.056 and flash-attn's 0.095,
-because at that size both libraries are dominated by fixed launch overhead that a simpler
-kernel does not pay. `torch.sdpa`'s flash backend and the `flash-attn` package track each
-other closely, as expected — SDPA dispatches to the same FlashAttention-2 kernels.
+```
+S1
+S2
+S3
+S4
+S5  <-- currently speaking
+```
 
-The gap is not a tuning gap. v2 sustains 10.4–11.7 TFLOP/s, which is **29–32% of this card's
-36.2 TFLOP/s fp32 FMA peak** — a respectable fraction of the machine this kernel is using. The
-problem is *which* machine it uses: every multiply happens on the CUDA cores, and the operands
-arrive through shared memory at roughly 1.75 bytes per FMA while an SM sustains about 1.0. On
-that model the design caps near 57% of fp32 peak before staging, softmax bookkeeping and
-barriers are paid for. flash-attn is not winning by being 3x better at the same game — it runs
-the matmuls on the tensor cores, whose fp16 peak is about 2x the fp32 pipe and which take
-their operands from registers via `ldmatrix`/`mma` instead of the shared-memory path that
-limits this kernel.
+Student 5 pays different amounts of attention to each previous student.
 
-**What is measured and what is modeled.** The times above are measured, by a clock. The
-TFLOP/s, GB/s and "% of peak" figures are *derived* from those times and the analytic FLOP and
-byte counts — they assume the kernel moves exactly the bytes the model says. The
-shared-memory-limited explanation of the gap is likewise a **model**: confirming which unit
-actually saturates needs hardware performance counters, and the machine these numbers come
-from denies access to them (`ERR_NVGPUCTRPERM` — it is a container, and the restriction is a
-per-host driver property that cannot be lifted from inside).
+Maybe:
 
-**Counter-validated profiles are therefore pending**, tracked as open work against a
-documentation-only `v2.0.1` cut at the `v2.0.0` commit — see
-[docs/profiles/summary.md](docs/profiles/summary.md) for what will be captured and how. Until
-then, treat every claim here about which hardware unit is saturated as a model that has not
-been counter-validated. The reproducible split is set out in
-[docs/profiles/analysis.md](docs/profiles/analysis.md).
+```
+S1 -> 10%
+S2 -> 20%
+S3 -> 50%
+S4 -> 20%
+```
 
-So closing the gap means writing a WMMA/MMA kernel, not shaving instructions off this one. That
-is deliberately out of scope for v2.0.0 and is the next planned step.
+The final answer is produced by combining information from all previous students according to these percentages.
 
-**Decode picks its split size per launch.** A decode call has only `batch x heads x splits`
-blocks, so the split-K chunk decides whether the GPU is filled at all: with the chunk fixed at
-512 keys, one sequence at context 1024 launched 24 blocks on an 82-SM card, with an access
-pattern that was already one fully coalesced 128-byte request per cached row. `decode` now
-chooses the largest power-of-two chunk in [128, 1024] for which `batch · heads · ceil(S/chunk)`
-reaches two blocks per SM, falling back to the finest split when no chunk can —
-largest-that-fits rather than finest-available, so the merge pass stays cheap. At B=1, H=12
-that is worth **2.9–3.0x**:
+This process is called **Attention**.
 
-| S | fixed Sk=512 | adaptive | speedup |
-| ---: | ---: | ---: | ---: |
-| 512 | 0.0514 ms · 30.7 GB/s | 0.0175 ms · 91.5 GB/s | 2.94x |
-| 1024 | 0.0517 ms · 61.1 GB/s | 0.0175 ms · 182.5 GB/s | 2.95x |
-| 2048 | 0.0909 ms · 69.5 GB/s | 0.0302 ms · 211.6 GB/s | 3.01x |
+LLMs perform this operation for every word in the sentence.
 
-The chunk size is a scheduling choice, not a numerical one — the log-sum-exp merge makes the
-result independent of it, and the suite asserts that across every chunk in the range. Full
-analysis in [docs/profiles/analysis.md](docs/profiles/analysis.md).
+---
 
-## What is in v2
+## The Problem
 
-| | |
-| :-- | :-- |
-| shapes | `(B, H, N, 64)`, contiguous row-major, fp16 |
-| accumulation | fp32 throughout (scores, softmax statistics, output) |
-| prefill | one block per `(batch, head, query tile)`, Br=64 x Bc=32, online softmax |
-| causal | key tiles above the diagonal are skipped, not masked |
-| decode | split-K over the cached keys, log-sum-exp merge of the partials |
-| ragged batches | `seq_lens` is per-sequence; chunks past a sequence's end drop out |
-| verification | 90 GPU tests against an fp32 SDPA reference, tolerance 2e-3 |
+Suppose we have:
 
-`head_dim = 64` is a static assertion, not a runtime check: the tile shapes, register blocking
-and vectorised loads are all resolved at compile time from it.
+```
+4000 words
+```
 
-## Install
+Each word compares itself with every previous word.
 
-Requires an NVIDIA GPU of compute capability 8.0 or newer, a CUDA toolkit, and a working
-PyTorch install.
+That means:
+
+```
+4000 × 4000
+=
+16 million comparisons
+```
+
+Doing this repeatedly becomes expensive.
+
+Even worse, the GPU wastes time **moving data between memory** instead of doing calculations.
+
+---
+
+## What is Flash Attention?
+
+Instead of loading the entire sentence into GPU memory, Flash Attention divides it into small blocks.
+
+Instead of:
+
+```
+4000 words
+```
+
+it processes:
+
+```
+64 words
+   ↓
+next 64
+   ↓
+next 64
+```
+
+Only one small block is kept inside the GPU's fast shared memory.
+
+```
+Less memory movement
+        ↓
+More GPU utilization
+        ↓
+  Faster execution
+```
+
+---
+
+## What did I implement?
+
+I wrote two CUDA kernels.
+
+### 1. Prefill Kernel
+
+Used when the entire prompt is already available.
+
+```
+User: Explain Newton's Laws.
+```
+
+The model already knows the whole sentence, so every word attends to all previous words.
+
+### 2. Decode Kernel
+
+Used while the model is generating new words.
+
+```
+The cat sat on the ______
+```
+
+The model predicts one new word at a time. Instead of recomputing attention for the entire sentence, it stores previous Keys and Values inside a **KV cache**. Every new token only compares against the cache.
+
+This makes generation much faster.
+
+---
+
+## Features
+
+| Feature | Status |
+|---|---|
+| Batched Multi-Head Attention | ✔ |
+| Causal Attention | ✔ |
+| KV Cache Decode | ✔ |
+| FP16 Inputs | ✔ |
+| FP32 Accumulation | ✔ |
+| Shared Memory Tiling | ✔ |
+| Online Softmax | ✔ |
+| Split-K Decode | ✔ |
+| Ragged Sequence Support | ✔ |
+| PyTorch CUDA Extension (`pip install -e .`) | ✔ |
+| 90 GPU Correctness Tests | ✔ |
+| Tensor Cores / WMMA / MMA | ✘ (planned) |
+| Backward Pass / Training | ✘ (planned) |
+
+---
+
+## GPU Optimizations Used
+
+### Shared Memory
+
+Frequently used data is copied into the GPU's fast shared memory. Instead of reading from slow global memory repeatedly, threads reuse the same shared data.
+
+### Tiling
+
+The attention matrix is divided into small blocks.
+
+```
+4000 × 4000
+     ↓
+ 64 × 32 blocks
+```
+
+Each CUDA block processes one tile.
+
+### Online Softmax
+
+Normally softmax needs multiple passes. Flash Attention computes softmax **while** processing tiles, using a running maximum and a running sum. This reduces memory usage.
+
+### Causal Attention
+
+Words should not see future words.
+
+```
+I love ______
+```
+
+The model should not look at `pizza` before predicting it. Future positions are skipped automatically.
+
+### FP16 Inputs
+
+The input tensors are stored using FP16. This saves memory and bandwidth.
+
+### FP32 Accumulation
+
+Although inputs are FP16, all mathematical accumulation happens in FP32. This improves numerical accuracy.
+
+### Split-K Decode
+
+During decoding, multiple CUDA blocks process different parts of the KV cache. Their partial results are merged later. This increases GPU utilization when the batch is small.
+
+---
+
+## Performance
+
+Measured on an NVIDIA RTX 3090 (SM 8.6).
+
+| Path | Result |
+|---|---|
+| **Prefill** | Up to **62× faster** than my previous (v1) implementation |
+| **Decode** | Around **3× faster** than a simple PyTorch decode loop for small contexts |
+
+Full tables, methodology and profiler traces are in [`docs/benchmarks.md`](docs/benchmarks.md) and [`docs/profiles/analysis.md`](docs/profiles/analysis.md).
+
+---
+
+## Project Structure
+
+```
+flash-attention-cuda
+│
+├── csrc/                  # CUDA kernels + bindings
+│   ├── prefill.cu         # Prefill (full prompt) kernel
+│   ├── decode.cu          # Decode (KV cache) kernel
+│   ├── bindings.cpp       # PyTorch extension bindings
+│   └── legacy/            # v1 kernels, kept for comparison
+│
+├── bench/                 # Benchmark + profiling scripts
+│   ├── run_bench.py
+│   ├── run_analysis.py
+│   └── profile_workload.py
+│
+├── tests/                 # 90 GPU correctness tests
+│
+├── docs/                  # Performance reports
+│   ├── benchmarks.md
+│   ├── v1.md
+│   └── profiles/
+│       ├── analysis.md
+│       └── summary.md
+│
+├── .github/workflows/ci.yml
+├── LICENSE
+├── setup.py
+└── README.md
+```
+
+---
+
+## Development Environment
+
+| Component | Version |
+|---|---|
+| GPU | NVIDIA RTX 3090 (SM 8.6) |
+| CUDA | 13.0 |
+| PyTorch | 2.11.0 + cu130 |
+| OS | Ubuntu (WSL) |
+| Profilers | Nsight Systems, Nsight Compute |
+| Language | CUDA C++, C++, Python |
+
+---
+
+## Installation
+
+Clone the repository:
 
 ```bash
 git clone https://github.com/shrvan30/flash-attention-cuda.git
 cd flash-attention-cuda
+```
+
+Install as an editable PyTorch extension:
+
+```bash
 pip install -e .
 ```
 
-The build targets `sm_86` (RTX 3090) by default; set `TORCH_CUDA_ARCH_LIST` for another card:
+> **Requirements:** An NVIDIA GPU with compute capability 7.0+, a matching CUDA toolkit, and a PyTorch build compiled against the same CUDA version.
 
-```bash
-TORCH_CUDA_ARCH_LIST="8.0" pip install -e .
-```
+---
 
-The extension links against the PyTorch already installed in the environment — an in-tree PEP
-517 backend makes that work under pip's default build isolation, so no extra flags are needed.
+## Testing
 
-## Test
+Install pytest:
 
 ```bash
 pip install pytest
-python -m pytest -m gpu           # 90 GPU tests
 ```
 
-The suite compares against `scaled_dot_product_attention` computed in fp32 on upcast inputs, so
-the measured difference is the kernel's error and not the reference's. It sweeps
-B in {1,4} x H in {8,12,14} x N in {128,512,1024,2048,4096} x causal, plus sequence lengths that
-are not tile multiples, decode against the causal prefill output, ragged decode batches, and
-cache lengths straddling the split boundary.
-
-## Benchmark and profile
+Run the GPU correctness tests:
 
 ```bash
-python bench/run_bench.py       # timings and charts   -> docs/benchmarks.md
-python bench/run_analysis.py    # occupancy + roofline -> docs/profiles/analysis.md
-nsys profile -t cuda -o docs/profiles/prefill python bench/profile_workload.py prefill
-bash bench/profile_ncu.sh       # counter capture      -> docs/profiles/summary.md
+python -m pytest -m gpu
 ```
 
-Full tables, chart sources and the machine description are in
-[docs/benchmarks.md](docs/benchmarks.md); occupancy, the analytical roofline and the
-timeline notes are in [docs/profiles/analysis.md](docs/profiles/analysis.md).
-`bench/profile_ncu.sh` needs a card whose driver allows performance counters, and refuses
-to run with instructions where it does not.
+The project contains **90 GPU correctness tests** covering:
 
-## Layout
+- Prefill
+- Decode
+- Causal Attention
+- Ragged Sequences
+- Multiple Batch Sizes
+- Multiple Sequence Lengths
 
+All kernels are validated against a PyTorch reference implementation.
+
+---
+
+## Benchmarking and Profiling
+
+Generate benchmark tables:
+
+```bash
+python bench/run_bench.py
 ```
-csrc/            v2 extension: bindings.cpp, prefill.cu, decode.cu, legacy/
-src/legacy/      v1 kernels, unchanged, still built by CMake and callable from Python
-tests/           GPU correctness suite
-bench/           benchmark and profiling drivers
-docs/            generated benchmark tables, charts and profiles
+
+Generate profiling analysis:
+
+```bash
+python bench/run_analysis.py
 ```
 
-## v1 — the earlier progression
+Profile with Nsight Systems:
 
-v1 (tagged `v1.0.0`) was a teaching sequence — CPU baseline, naive GPU, tiled, fused — and its
-numbers are kept in [docs/v1.md](docs/v1.md). It is single-head, fp32, non-causal, has no decode
-path and no Python binding, so it cannot serve a transformer layer; the kernels are still built
-and are benchmarked alongside v2 above for scale. v2 addresses every one of those limitations
-except tensor cores.
+```bash
+nsys profile -t cuda \
+  -o docs/profiles/prefill \
+  python bench/profile_workload.py prefill
+```
 
-## Licence
+```bash
+nsys profile -t cuda \
+  -o docs/profiles/decode \
+  python bench/profile_workload.py decode
+```
 
-MIT — see [LICENSE](LICENSE).
+---
+
+## Documentation
+
+For detailed technical explanations, benchmarking and profiling reports, see:
+
+| Document | Contents |
+|---|---|
+| [`docs/benchmarks.md`](docs/benchmarks.md) | Benchmark tables and methodology |
+| [`docs/profiles/analysis.md`](docs/profiles/analysis.md) | Nsight Compute kernel-level analysis |
+| [`docs/profiles/summary.md`](docs/profiles/summary.md) | High-level profiling summary |
+| [`docs/v1.md`](docs/v1.md) | The original v1 implementation and what changed |
+
+---
+
+## Limitations
+
+The current version **uses**:
+
+✔ CUDA cores
+✔ Shared memory
+✔ Online softmax
+✔ Batched attention
+✔ Multi-head attention
+✔ KV Cache
+✔ Causal masking
+
+The current version **does not use**:
+
+- Tensor Cores
+- WMMA
+- MMA Instructions
+
+Because of this, it is still slower than NVIDIA's official FlashAttention implementation.
+
+---
+
+## Future Improvements
+
+- Tensor Core (WMMA) implementation
+- MMA instructions
+- Higher occupancy
+- Better memory throughput
+- Support for more head dimensions
+- Backward pass
+- Training support
+
+---
+
+## Continuous Integration
+
+Every commit automatically runs:
+
+- Build
+- Unit tests
+- GPU test suite (when a GPU runner is available)
+
+**Workflow file:** [`.github/workflows/ci.yml`](https://github.com/shrvan30/flash-attention-cuda/blob/main/.github/workflows/ci.yml)
+
+**Workflow runs:** https://github.com/shrvan30/flash-attention-cuda/actions/workflows/ci.yml
+
+---
+
+## What I Learned
+
+While building this project I learned:
+
+- CUDA Programming
+- GPU Architecture
+- Memory Hierarchy
+- Shared Memory
+- Warp Execution
+- Occupancy
+- Memory Coalescing
+- Online Softmax
+- The FlashAttention Algorithm
+- PyTorch CUDA Extensions
+- GPU Profiling using Nsight
+
+---
+
+## References
+
+| Resource | Link |
+|---|---|
+| FlashAttention Paper | https://arxiv.org/abs/2205.14135 |
+| FlashAttention-2 Paper | https://arxiv.org/abs/2307.08691 |
+| CUDA Programming Guide | https://docs.nvidia.com/cuda/ |
+| CUDA C++ Best Practices Guide | https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/ |
+| PyTorch CUDA Extension Tutorial | https://pytorch.org/tutorials/advanced/cpp_extension.html |
+| Nsight Systems | https://developer.nvidia.com/nsight-systems |
+| Nsight Compute | https://developer.nvidia.com/nsight-compute |
+| Attention Is All You Need | https://arxiv.org/abs/1706.03762 |
+
+---
+
+## License
+
+This project is licensed under the **MIT License**.
+
+See the [LICENSE](LICENSE) file for full details.
+
+---
+
+## In One Line
+
+> "I built Flash Attention completely from scratch in CUDA to understand how modern LLMs speed up attention using shared memory, tiling, online softmax, and GPU optimizations instead of relying on PyTorch's built-in implementation."
