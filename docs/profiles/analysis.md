@@ -137,7 +137,9 @@ here about how this kernel compares to a state-of-the-art decode implementation.
 
 ## Timeline observations (nsys)
 
-Read back from `prefill.nsys-rep` and `decode.nsys-rep` in this directory,
+Read back from the `prefill.nsys-rep` and `decode.nsys-rep` traces (regenerated
+with the profiling commands in the [README](../../README.md); the captures ship
+as release assets rather than living in git),
 collected with `nsys profile -t cuda` (no `--gpu-metrics-device`, which is
 counter-gated). These are wall-clock kernel durations from the trace, not
 counter measurements.
